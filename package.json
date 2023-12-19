@@ -1,5 +1,5 @@
 {
-  "name": "viewshed",
+  "name": "@vcmap/viewshed",
   "version": "1.0.0",
   "description": "Tool to simulate a \"viewer\" and their field of vision from a certain standpoint in the map. It allows the user to see which areas and buildings can or can't be seen from a specific standpoint, regarding different viewing distances, viewers' sizes and orientations.Th",
   "type": "module",
@@ -48,10 +48,15 @@
   "prettier": "@vcsuite/eslint-config/prettier.js",
   "peerDependencies": {
     "@vcmap-cesium/engine": "^4.0.3",
-    "@vcmap/core": "^5.0.2",
-    "@vcmap/ui": "^5.0.2",
+    "@vcmap/core": "git+ssh://git@gitlab.virtualcitysystems.de/vcsuite/npm/vcmap/core.git#main",
+    "@vcmap/ui": "git+ssh://git@gitlab.virtualcitysystems.de/vcsuite/npm/vcmap/ui.git#feature-drawComponents",
+    "ol": "^7.5.2",
     "vue": "~2.7.3",
     "vuetify": "~2.6.7"
+  },
+  "overrides": {
+    "@vcmap/core": "git+ssh://git@gitlab.virtualcitysystems.de/vcsuite/npm/vcmap/core.git#main",
+    "@vcmap/ui": "git+ssh://git@gitlab.virtualcitysystems.de/vcsuite/npm/vcmap/ui.git#feature-drawComponents"
   },
   "devDependencies": {
     "@vcmap/plugin-cli": "^2.1.16",
@@ -61,6 +66,10 @@
     "jsdom": "^22.1.0",
     "resize-observer-polyfill": "^1.5.1",
     "vitest": "^0.34.6"
+  },
+  "dependencies": {
+    "@vcsuite/check": "^1.1.2",
+    "@vcsuite/parsers": "^1.0.3"
   },
   "mapVersion": "^5.0"
 }
