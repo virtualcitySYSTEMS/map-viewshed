@@ -1,3 +1,4 @@
-# v1.0.0
+# v2.0.0
 
-Document features and fixes
+- implements the new uniform select behavior
+- updates core and ui to 5.1

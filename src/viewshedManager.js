@@ -1,4 +1,4 @@
-import { ref, shallowRef } from 'vue';
+import { nextTick, ref, shallowRef } from 'vue';
 import {
   CesiumMap,
   EventType,
@@ -28,17 +28,15 @@ import ViewshedInteraction from './viewshedInteraction.js';
  * @property {function(import("./viewshed.js").default):void} viewViewshed Changes mode to VIEW for passed Viewshed.
  * @property {function(import("./viewshed.js").default):void} editViewshed Changes mode to EDIT for passed Viewshed.
  * @property {function(boolean):void} moveCurrentViewshed Changes mode to MOVE. If heightMode is ABSOLUTE a translate EditFeatureSession is started, if RELATIVE a EditGeometrySession is started.
+ * @property {function():void} setupMultiSelect Changes mode to MULTI_SELECT.
  * @property {function():void} persistCurrent Adds current viewshed to the category collection.
  * @property {import("vue").Ref<ViewshedPluginModes | null>} mode Viewshed mode. Should only be used to watch and get the mode, not to set the mode.
  * @property {import("vue").Ref<HeightModes>} heightMode The height mode the viewshed plugin is currently in. Use changeHeightMode to change height mode when there is a currentViewshed.
  * @property {function():void} changeHeightMode Sets heightMode and calculates the Z value according to the input heightMode.
  * @property {function():void} placeCurrentFeaturesOnTerrain Places viewshed on terrain. Only available when in 'move' mode and height mode 'absolute'.
- * @property {function():void} stop Stops the creation and removes current viewshed.
+ * @property {function(boolean=):void} stop Stops the creation and removes current viewshed.
  * @property {function():void} destroy Destroys the viewshed manager.
  */
-
-/** Window id for viewshed editing window. */
-export const viewshedPluginWindowId = 'ViewshedPluginWindow';
 
 /**
  * @enum {string}
@@ -62,6 +60,7 @@ export const ViewshedPluginModes = {
   VIEW: 'view',
   EDIT: 'edit',
   MOVE: 'move',
+  MULTI_SELECT: 'multiSelect',
 };
 
 /** The default height offset of a viewshed. */
@@ -131,21 +130,35 @@ export default function createViewshedManager(app, config, categoryHelper) {
   /** @type {import("vue").Ref<import("@vcmap/core").EditFeaturesSession | import("@vcmap/core").EditGeometrySession | null>} */
   const currentEditSession = shallowRef(null);
 
-  function stop() {
-    removeInteraction();
-    if (currentIsPersisted.value) {
-      currentViewshed.value?.deactivate();
+  function setCurrentViewshed(viewshed) {
+    if (currentIsPersisted.value && currentViewshed.value) {
+      currentViewshed.value.deactivate();
+      categoryHelper.setVisibility(currentViewshed.value.name, false);
     } else {
       currentViewshed.value?.destroy();
     }
-    categoryHelper.clearSelection();
-    currentViewshed.value = null;
+    currentViewshed.value = viewshed;
+    currentViewshed.value?.activate(app.maps.activeMap);
+  }
+
+  /**
+   * Stops the viewshed operation.
+   * @param {boolean} [clear=true] - Indicates whether to clear the selection.
+   */
+  function stop(clear = true) {
+    removeInteraction();
+    setCurrentViewshed(null);
+    if (clear) {
+      categoryHelper.clearSelection();
+    }
     currentIsPersisted.value = null;
     mode.value = null;
   }
 
-  function createViewshed(viewshedType) {
+  async function createViewshed(viewshedType) {
     stop();
+    await nextTick(); // so the viewshedWindow is closed with mode === null and not CREATE
+
     const { eventHandler } = app.maps;
     const { featureInteraction } = eventHandler;
 
@@ -253,37 +266,52 @@ export default function createViewshedManager(app, config, categoryHelper) {
     }
   }
 
+  /**
+   * Changes the mode and the current viewshed. Only works with viewshedMode EDIT and VIEW.
+   * @param {ViewshedPluginModes} viewshedMode
+   * @param {import("./viewshed.js").default} viewshed
+   */
   function changeMode(viewshedMode, viewshed) {
+    removeInteraction();
     if (currentViewshed.value !== viewshed) {
-      stop();
-      currentViewshed.value = viewshed;
+      setCurrentViewshed(viewshed);
       heightMode.value = viewshed.heightOffset
         ? HeightModes.RELATIVE
         : HeightModes.ABSOLUTE;
     }
     currentIsPersisted.value = !!viewshed.properties.title;
-    viewshed.activate(app.maps.activeMap);
     mode.value = viewshedMode;
+    if (currentIsPersisted.value) {
+      categoryHelper.setVisibility(viewshed.name, true);
+    }
   }
 
   const categoryListener = [
-    categoryHelper.selected.addEventListener(({ item, isSelected }) => {
-      stop();
-      if (isSelected) {
-        changeMode(ViewshedPluginModes.EDIT, item);
-      }
-    }),
-    categoryHelper.removed.addEventListener((item) => {
-      categoryHelper.remove(item.name);
-      if (currentViewshed.value?.name === item.name) {
-        stop();
-      }
-    }),
+    categoryHelper.collectionComponent.collection.removed.addEventListener(
+      (item) => {
+        categoryHelper.remove(item.name);
+        if (currentViewshed.value?.name === item.name) {
+          stop();
+        }
+      },
+    ),
     categoryHelper.renamed.addEventListener(({ item, title }) => {
-      const viewshedWindow = app.windowManager.get(viewshedPluginWindowId);
+      const viewshedWindow = app.windowManager.get(
+        `${categoryHelper.collectionComponent.id}-editor`,
+      );
       if (viewshedWindow && currentViewshed.value?.name === item.name) {
         viewshedWindow.state.headerTitle = title;
       }
+    }),
+    categoryHelper.visibilityChanged.addEventListener((item) => {
+      const isCurrentlyVisible = currentViewshed.value?.name === item.name;
+      if (isCurrentlyVisible) {
+        stop();
+      } else {
+        changeMode(ViewshedPluginModes.VIEW, item);
+        categoryHelper.clearSelection();
+      }
+      categoryHelper.setVisibility(item.name, !isCurrentlyVisible);
     }),
   ];
 
@@ -341,15 +369,26 @@ export default function createViewshedManager(app, config, categoryHelper) {
     },
     editViewshed(viewshed) {
       changeMode(ViewshedPluginModes.EDIT, viewshed);
+      if (currentIsPersisted.value) {
+        // makes sure the editor window is open, if it is not triggered by a new selection but e.g. the tristate button
+        categoryHelper.setSelection(viewshed.name);
+        categoryHelper.collectionComponent.openEditorWindow(viewshed);
+      }
     },
     persistCurrent() {
       if (currentViewshed.value) {
         categoryHelper.add(currentViewshed.value);
         currentIsPersisted.value = true;
         categoryHelper.setSelection(currentViewshed.value.name);
+        categoryHelper.setVisibility(currentViewshed.value.name, true);
       }
     },
     moveCurrentViewshed,
+    setupMultiSelect() {
+      removeInteraction();
+      mode.value = ViewshedPluginModes.MULTI_SELECT;
+      setCurrentViewshed(null);
+    },
     mode,
     heightMode,
     changeHeightMode,

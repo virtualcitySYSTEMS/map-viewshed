@@ -66,6 +66,7 @@ export default function plugin(config) {
       const { destroy: destroyViewshedWindow } = setupViewshedWindow(
         viewshedManager,
         vcsUiApp,
+        viewshedCategoryHelper.collectionComponent,
       );
       destroy = () => {
         destroyButtons();

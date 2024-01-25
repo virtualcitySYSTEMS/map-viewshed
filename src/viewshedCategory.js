@@ -1,16 +1,23 @@
+import { reactive } from 'vue';
 import { Category, CesiumMap, VcsEvent } from '@vcmap/core';
+import {
+  createListExportAction,
+  createListImportAction,
+  downloadText,
+} from '@vcmap/ui';
 import { name } from '../package.json';
 import Viewshed from './viewshed.js';
 
 /**
  * @typedef {Object} ViewshedCategoryHelper
- * @property {import("@vcmap/core").VcsEvent} selected
- * @property {import("@vcmap/core").VcsEvent} removed
  * @property {import("@vcmap/core").VcsEvent} renamed
+ * @property {import("@vcmap/core").VcsEvent} visibilityChanged Event that is raised when the visibility of a viewshed is changed.
  * @property {function(string | null):void} setSelection Sets a single viewshed item as selected by providing its name.
  * @property {function():void} clearSelection Clears all selected items.
+ * @property {function(string, boolean):void} setVisibility Sets the visibility of a viewshed item by providing its name and a boolean value.
  * @property {function(import("./viewshed.js").default):void} add Adds a viewshed to the categories collection. Also assigns new title to the viewshed.
  * @property {function(string):void} remove Removes viewshed from category collection by providing a name.
+ * @property {import("@vcmap/ui").CollectionComponent} collectionComponent The collection component of the category.
  * @property {function():void} destroy Destroys category helper
  */
 
@@ -66,9 +73,8 @@ export function getTitleForViewshed(viewshedType, persistedViewsheds) {
  * @returns {Promise<ViewshedCategoryHelper>}
  */
 export async function createCategory(app) {
-  const selected = new VcsEvent();
-  const removed = new VcsEvent();
   const renamed = new VcsEvent();
+  const visibilityChanged = new VcsEvent();
 
   const { collectionComponent, category } =
     await app.categoryManager.requestCategory(
@@ -80,26 +86,29 @@ export async function createCategory(app) {
       name,
       {
         selectable: true,
-        renameable: true,
-        singleSelect: true,
+        renamable: true,
+        removable: true,
       },
     );
 
   const itemMappingFunction = (item, c, listItem) => {
     listItem.title = item.properties.title;
-    listItem.actions.push({
-      name: 'viewshed.remove',
-      callback: () => {
-        removed.raiseEvent(item);
-      },
-    });
 
-    listItem.selectionChanged = (isSelected) => {
-      selected.raiseEvent({ item, isSelected });
-    };
     listItem.titleChanged = (title) => {
+      item.properties.title = title;
+      listItem.title = title;
       renamed.raiseEvent({ item, title });
     };
+
+    listItem.actions.push(
+      reactive({
+        name: 'visibilityAction',
+        icon: '$vcsCheckbox',
+        callback() {
+          visibilityChanged.raiseEvent(item);
+        },
+      }),
+    );
   };
 
   app.categoryManager.addMappingFunction(
@@ -109,10 +118,51 @@ export async function createCategory(app) {
     [collectionComponent.id],
   );
 
+  const { action: exportAction, destroy: destroyExportAction } =
+    createListExportAction(
+      collectionComponent.selection,
+      () => {
+        const viewsheds = collectionComponent.selection.value.map((item) =>
+          collectionComponent.collection.getByKey(item.name),
+        );
+        downloadText(JSON.stringify(viewsheds), 'viewsheds.json');
+      },
+      name,
+    );
+
+  const { action: importAction, destroy: destroyImportAction } =
+    createListImportAction(
+      async (files) => {
+        const promises = files.map((file) => {
+          const reader = new FileReader();
+          return new Promise((resolve, reject) => {
+            reader.onload = () => {
+              try {
+                const viewshedOptions = JSON.parse(reader.result);
+                viewshedOptions.forEach((options) => {
+                  const viewshed = new Viewshed(options);
+                  category.collection.add(viewshed);
+                });
+                resolve();
+              } catch (e) {
+                reject(e);
+              }
+            };
+            reader.readAsText(file);
+          });
+        });
+        await Promise.all(promises);
+      },
+      app.windowManager,
+      name,
+      'category-manager',
+    );
+
+  collectionComponent.addActions([exportAction, importAction]);
+
   return {
-    selected,
-    removed,
     renamed,
+    visibilityChanged,
     setSelection(itemName) {
       if (itemName) {
         collectionComponent.selection.value =
@@ -120,7 +170,24 @@ export async function createCategory(app) {
       }
     },
     clearSelection() {
-      collectionComponent.selection.value = [];
+      if (collectionComponent.selection.value.length) {
+        collectionComponent.selection.value = [];
+      }
+    },
+    setVisibility(itemName, visible) {
+      const listItem = collectionComponent.items.value.find(
+        (i) => itemName === i.name,
+      );
+      if (listItem) {
+        const visibilityAction = listItem.actions.find(
+          (action) => action.name === 'visibilityAction',
+        );
+        if (visibilityAction) {
+          visibilityAction.icon = visible
+            ? '$vcsCheckboxChecked'
+            : '$vcsCheckbox';
+        }
+      }
     },
     add(viewshed) {
       viewshed.properties.title = getTitleForViewshed(
@@ -137,11 +204,13 @@ export async function createCategory(app) {
         category.collection.remove(item);
       }
     },
+    collectionComponent,
     destroy() {
       app.categoryManager.removeOwner(name);
-      selected.destroy();
-      removed.destroy();
       renamed.destroy();
+      visibilityChanged.destroy();
+      destroyExportAction();
+      destroyImportAction();
     },
   };
 }

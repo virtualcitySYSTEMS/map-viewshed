@@ -42,7 +42,8 @@
               :prefix="key"
               :show-spin-buttons="true"
               :step="key === 'Z' ? 1 : 0.0001"
-              :unit="key === 'Z' ? 'm' : ''"
+              :unit="key === 'Z' ? 'm' : '°'"
+              :decimals="key === 'Z' ? 2 : 8"
               :disabled="
                 viewshedMode === ViewshedPluginModes.MOVE &&
                 !(key === 'Z' && heightMode === HeightModes.RELATIVE)
@@ -82,17 +83,11 @@
       "
     >
       <v-row no-gutters v-for="(value, key) in parameters" :key="key">
-        <v-col v-if="key === 'showPrimitive'">
-          <VcsCheckbox
-            :value="value"
-            @change="(v) => setParameter(key, v)"
-            label="viewshed.showPrimitive"
-            :true-value="true"
-            :false-value="false"
-          />
-        </v-col>
         <v-col
-          v-else-if="key === 'distance' || viewshedType === ViewshedTypes.CONE"
+          v-if="
+            key === 'distance' ||
+            (viewshedType === ViewshedTypes.CONE && key !== 'showPrimitive')
+          "
         >
           <v-row no-gutters class="pr-1">
             <v-col>
@@ -155,6 +150,7 @@
   import {
     computed,
     inject,
+    onMounted,
     onUnmounted,
     reactive,
     ref,
@@ -165,7 +161,6 @@
   import { VCol, VContainer, VDivider, VRow } from 'vuetify/lib';
   import { TransformationMode, Viewpoint } from '@vcmap/core';
   import {
-    VcsCheckbox,
     VcsFormButton,
     VcsFormSection,
     VcsLabel,
@@ -194,13 +189,24 @@
       VcsLabel,
       VcsFormSection,
       VDivider,
-      VcsCheckbox,
       VcsSelect,
       VcsFormButton,
       VcsFeatureTransforms,
     },
     name: 'ViewshedWindow',
-    setup() {
+    props: {
+      getViewshed: {
+        type: Function,
+        required: false,
+        default: undefined,
+      },
+      selection: {
+        type: Object,
+        required: false,
+        default: undefined,
+      },
+    },
+    setup(props) {
       const viewshedManager =
         /** @type {import("./viewshedManager.js").ViewshedManager} */ (
           inject('manager')
@@ -213,6 +219,8 @@
         mode: viewshedMode,
         currentIsPersisted,
       } = viewshedManager;
+
+      const selection = ref(props.selection);
 
       let removePositionChangedListener = () => {};
 
@@ -271,7 +279,7 @@
       watchEffect(() => {
         if (
           currentViewshed.value &&
-          viewshedManager.mode.value !== ViewshedPluginModes.CREATE
+          viewshedMode.value !== ViewshedPluginModes.CREATE
         ) {
           updateWindow();
         }
@@ -311,12 +319,55 @@
         };
       }
 
+      onMounted(() => {
+        const viewshed = props.getViewshed?.();
+        if (viewshed) {
+          // only the case for collection component editor
+          viewshedManager.editViewshed(viewshed);
+        }
+      });
+
       onUnmounted(() => {
         removePositionChangedListener();
         deleteCachedViewpoint();
+
+        if (!currentIsPersisted.value) {
+          // in case of temp editor
+          if (
+            (viewshedMode.value === ViewshedPluginModes.EDIT ||
+              viewshedMode.value === ViewshedPluginModes.MOVE) &&
+            currentViewshed.value
+          ) {
+            viewshedManager.viewViewshed(currentViewshed.value);
+          } else if (viewshedMode.value === ViewshedPluginModes.CREATE) {
+            viewshedManager.stop();
+          }
+        }
+        if (selection.value) {
+          // in case of collection component editor
+          if (selection.value.length > 1) {
+            viewshedManager.setupMultiSelect();
+          } else if (selection.value.length === 1 && currentViewshed.value) {
+            viewshedManager.viewViewshed(currentViewshed.value);
+          } else if (
+            // when a persited viewshed is deselected, stops plugin
+            !selection.value.length &&
+            viewshedMode.value === ViewshedPluginModes.EDIT
+          ) {
+            viewshedManager.stop(false);
+          }
+        }
       });
 
       updateWindow();
+
+      function setParameter(key, value) {
+        deleteCachedViewpoint();
+        if (currentViewshed.value) {
+          parameters[key] = value;
+          currentViewshed.value[key] = value;
+        }
+      }
 
       const headerActions = computed(() => {
         const actions = [];
@@ -369,6 +420,16 @@
             );
           },
         });
+        actions.unshift({
+          name: 'showPrimitive',
+          title: 'viewshed.showPrimitive',
+          icon: 'mdi-eye',
+          active: parameters.showPrimitive,
+          callback() {
+            this.active = !this.active;
+            setParameter('showPrimitive', this.active);
+          },
+        });
         return actions;
       });
 
@@ -393,13 +454,7 @@
           position[key] = Number(value);
         },
         parameters,
-        setParameter(key, value) {
-          deleteCachedViewpoint();
-          if (currentViewshed.value) {
-            parameters[key] = value;
-            currentViewshed.value[key] = value;
-          }
-        },
+        setParameter,
         parameterRanges,
         ViewshedPluginModes,
         viewshedMode,
@@ -410,8 +465,8 @@
         heightMode: viewshedManager.heightMode,
         TransformationMode,
         changeHeightMode: viewshedManager.changeHeightMode,
-        createNewViewshed() {
-          viewshedManager.createViewshed(viewshedType.value);
+        async createNewViewshed() {
+          await viewshedManager.createViewshed(viewshedType.value);
         },
         addToMyWorkspace: () => viewshedManager.persistCurrent(),
         cancel: () => viewshedManager.stop(),
