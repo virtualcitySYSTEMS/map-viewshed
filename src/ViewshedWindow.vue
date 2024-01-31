@@ -220,7 +220,7 @@
         currentIsPersisted,
       } = viewshedManager;
 
-      const selection = ref(props.selection);
+      const selection = computed(() => props.selection);
 
       let removePositionChangedListener = () => {};
 

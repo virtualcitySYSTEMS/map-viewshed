@@ -133,25 +133,16 @@ export async function createCategory(app) {
   const { action: importAction, destroy: destroyImportAction } =
     createListImportAction(
       async (files) => {
-        const promises = files.map((file) => {
-          const reader = new FileReader();
-          return new Promise((resolve, reject) => {
-            reader.onload = () => {
-              try {
-                const viewshedOptions = JSON.parse(reader.result);
-                viewshedOptions.forEach((options) => {
-                  const viewshed = new Viewshed(options);
-                  category.collection.add(viewshed);
-                });
-                resolve();
-              } catch (e) {
-                reject(e);
-              }
-            };
-            reader.readAsText(file);
-          });
-        });
-        await Promise.all(promises);
+        await Promise.all(
+          files.map(async (file) => {
+            const text = await file.text();
+            const viewshedOptions = JSON.parse(text);
+            viewshedOptions.forEach((options) => {
+              const viewshed = new Viewshed(options);
+              category.collection.add(viewshed);
+            });
+          }),
+        );
       },
       app.windowManager,
       name,
