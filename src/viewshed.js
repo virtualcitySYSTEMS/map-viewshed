@@ -486,7 +486,6 @@ export default class Viewshed extends VcsObject {
       size: 2048,
     });
     this._shadowMap.viewshed = this._colors;
-    this._scene.shadowMap = this._shadowMap;
     this._cesiumMap.setShadowMap(this._shadowMap);
   }
 
