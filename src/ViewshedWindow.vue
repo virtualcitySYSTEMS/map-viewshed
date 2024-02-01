@@ -1,7 +1,12 @@
 <template>
   <div>
     <div v-if="viewshedMode === ViewshedPluginModes.CREATE" class="px-2 py-1">
-      {{ $t('viewshed.createDescription') }}
+      <template v-if="viewshedType === ViewshedTypes.CONE">
+        {{ $t('viewshed.createDescription') }}
+      </template>
+      <template v-else-if="viewshedType === ViewshedTypes.THREESIXTY">
+        {{ $t('viewshed.createThreeSixtyDescription') }}
+      </template>
     </div>
     <VcsFormSection
       v-else-if="

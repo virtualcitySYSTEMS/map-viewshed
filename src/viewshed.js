@@ -267,7 +267,6 @@ export default class Viewshed extends VcsObject {
         this.position[1],
         this.position[2] + value,
       );
-      this._updateShadowMap();
       this._updatePrimitive();
     }
   }
@@ -289,7 +288,9 @@ export default class Viewshed extends VcsObject {
       value > Viewshed.MIN_DISTANCE ? value : Viewshed.MIN_DISTANCE;
     if (this._shadowCamera) {
       this._shadowCamera.frustum.far = this._frustumOptions.far;
-      this._updateShadowMap();
+      if (this._viewshedType === ViewshedTypes.THREESIXTY) {
+        this._updateShadowMap();
+      }
       if (this._viewshedType === ViewshedTypes.CONE) {
         this._updatePrimitive();
       }
@@ -314,7 +315,6 @@ export default class Viewshed extends VcsObject {
       /** @type {import("@vcmap-cesium/engine").PerspectiveFrustum} */ (
         this._shadowCamera.frustum
       ).fov = value * CesiumMath.RADIANS_PER_DEGREE;
-      this._updateShadowMap();
       if (this._viewshedType === ViewshedTypes.CONE) {
         this._updatePrimitive();
       }
@@ -452,8 +452,10 @@ export default class Viewshed extends VcsObject {
       this._updateShadowMap();
       this._updatePrimitive();
       this._shadowMapChangedListener =
-        this._cesiumMap.shadowMapChanged.addEventListener(() => {
-          this.deactivate();
+        this._cesiumMap.shadowMapChanged.addEventListener((newShadowMap) => {
+          if (this._shadowMap !== newShadowMap) {
+            this.deactivate();
+          }
         });
     }
   }
@@ -471,6 +473,7 @@ export default class Viewshed extends VcsObject {
       return;
     }
 
+    this._shadowMap?.destroy();
     // @ts-ignore
     this._shadowMap = new ShadowMap({
       // @ts-ignore

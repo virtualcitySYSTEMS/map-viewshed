@@ -163,9 +163,11 @@ export default function plugin(config) {
           move: 'Move viewpoint',
           createDescription:
             'Click the map twice. First click places the origin, second defines the distance and direction of the viewshed.',
+          createThreeSixtyDescription:
+            'Click the map twice. First click places the origin, second defines the distance of the viewshed.',
           remove: 'Remove',
           editor: {
-            general: 'General',
+            general: 'General Settings',
             visibleColor: 'Visible color',
             shadowColor: 'Shadow color',
             tools: 'Tools',
@@ -197,11 +199,13 @@ export default function plugin(config) {
           move: 'Viewpoint verschieben',
           createDescription:
             'Klicke zweimal in die Karte. Der erste Klick platziert den Ursprung, der zweite die Distanz und die Richtung des Viewsheds.',
+          createThreeSixtyDescription:
+            'Klicke zweimal in die Karte. Der erste Klick platziert den Ursprung, der zweite die Distanz des Viewsheds.',
           remove: 'Entfernen',
           editor: {
-            general: 'Generelles',
+            general: 'Allgemeine Einstellungen',
             visibleColor: 'Sichtbarer Bereich',
-            shadowColor: 'Schatten Bereich',
+            shadowColor: 'Nicht sichtbarer Bereich',
             tools: 'Werkzeuge',
           },
         },
