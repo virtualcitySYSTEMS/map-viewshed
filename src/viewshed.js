@@ -102,9 +102,8 @@ export default class Viewshed extends VcsObject {
 
   /**
    * @param {ViewshedOptions} options The options for the viewshed.
-   * @param {import("@vcmap/core").CesiumMap} [cesiumMap] The cesiumMap the viewshed should be applied to. If this parameter is passed, the viewshed is activated and all other viewsheds are deactivated.
    */
-  constructor(options, cesiumMap) {
+  constructor(options) {
     super(options);
     /**
      * @type {import("@vcmap/core").CesiumMap | null}
@@ -198,26 +197,16 @@ export default class Viewshed extends VcsObject {
     this._showPrimitive = !!options.showPrimitive;
 
     /**
-     * Makes sure that the viewshed instance is deactivated, if shadow map of another viewshed or plugin is applied to the scene of the CesiumMap.
-     * @private
-     */
-    this._shadowMapChangedListener = null;
-
-    /**
      * @type {import("@vcmap/core").VcsEvent<number[]>}
      * @private
      */
     this._positionChanged = new VcsEvent();
 
-    if (cesiumMap) {
-      this.activate(cesiumMap);
-    } else {
-      /**
-       * @type {boolean}
-       * @private
-       */
-      this._active = false;
-    }
+    /**
+     * @type {boolean}
+     * @private
+     */
+    this._active = false;
   }
 
   /**
@@ -400,7 +389,7 @@ export default class Viewshed extends VcsObject {
   }
 
   /**
-   * Retruns the type of the Viewshed.
+   * Returns the type of the Viewshed.
    * @returns {ViewshedTypes}
    */
   get type() {
@@ -408,25 +397,30 @@ export default class Viewshed extends VcsObject {
   }
 
   /**
-   * Deactivates the viewshed by removing primitve and removing shadowMap.
+   * @returns {ShadowMap|null}
+   */
+  get shadowMap() {
+    return this._shadowMap;
+  }
+
+  /**
+   * Deactivates the viewshed by removing primitive and removing shadowMap.
    */
   deactivate() {
     if (this._active) {
       this._removePrimitive();
-      this._shadowMapChangedListener?.();
-      if (this._cesiumMap?.getScene()?.shadowMap === this._shadowMap) {
-        this._cesiumMap.setDefaultShadowMap();
-      }
+      this._shadowMap.enabled = false;
       this._shadowMap?.destroy();
       this._shadowCamera = null;
       this._scene = null;
       this._cesiumMap = null;
+      this._shadowMap = null;
       this._active = false;
     }
   }
 
   /**
-   * Activates viewshed. Sets the CesiumMap and adds shadowMapChanged listener to CesiumMap. If viewshed is active but
+   * Activates viewshed.
    * @param {import("@vcmap/core").CesiumMap} cesiumMap The cesium map to which the shadow map of the viewshed is applied to.
    */
   activate(cesiumMap) {
@@ -451,12 +445,6 @@ export default class Viewshed extends VcsObject {
 
       this._updateShadowMap();
       this._updatePrimitive();
-      this._shadowMapChangedListener =
-        this._cesiumMap.shadowMapChanged.addEventListener((newShadowMap) => {
-          if (this._shadowMap !== newShadowMap) {
-            this.deactivate();
-          }
-        });
     }
   }
 
@@ -493,7 +481,7 @@ export default class Viewshed extends VcsObject {
   }
 
   _removePrimitive() {
-    if (this._primitive) {
+    if (this._primitive && !this._primitive.isDestroyed?.()) {
       this._scene?.primitives.remove(this._primitive);
       this._primitive.destroy();
       this._primitive = null;
@@ -575,6 +563,11 @@ export default class Viewshed extends VcsObject {
    * Destroys the viewshed.
    */
   destroy() {
+    const cesiumMap = this._cesiumMap;
+    const shadowMap = this._shadowMap;
     this.deactivate();
+    if (cesiumMap?.getScene()?.shadowMap === shadowMap) {
+      cesiumMap.setDefaultShadowMap();
+    }
   }
 }

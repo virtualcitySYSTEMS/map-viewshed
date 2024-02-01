@@ -68,25 +68,40 @@ export default function plugin(config) {
         vcsUiApp,
         viewshedCategoryHelper.collectionComponent,
       );
+
+      const { activeMap } = vcsUiApp.maps;
+      function activateCachedViewshed(map) {
+        if (state?.mode && state.currentViewshed && map instanceof CesiumMap) {
+          const activeViewshed = new Viewshed(state.currentViewshed, activeMap);
+          if (state.mode === ViewshedPluginModes.VIEW) {
+            viewshedManager.viewViewshed(activeViewshed);
+          } else {
+            viewshedManager.editViewshed(activeViewshed);
+          }
+        }
+      }
+      let appliedCachedViewshed = false;
+      if (activeMap) {
+        appliedCachedViewshed = true;
+        activateCachedViewshed(activeMap);
+      }
+      const mapActivatedListener = vcsUiApp.maps.mapActivated.addEventListener(
+        (map) => {
+          viewshedManager.stop();
+          if (!appliedCachedViewshed) {
+            activateCachedViewshed(map);
+            appliedCachedViewshed = true;
+          }
+        },
+      );
+
       destroy = () => {
+        mapActivatedListener();
         destroyButtons();
         destroyViewshedWindow();
         viewshedCategoryHelper.destroy();
+        viewshedManager.destroy();
       };
-
-      const { activeMap } = vcsUiApp.maps;
-      if (
-        state?.mode &&
-        state.currentViewshed &&
-        activeMap instanceof CesiumMap
-      ) {
-        const activeViewshed = new Viewshed(state.currentViewshed, activeMap);
-        if (state.mode === ViewshedPluginModes.VIEW) {
-          viewshedManager.viewViewshed(activeViewshed);
-        } else {
-          viewshedManager.editViewshed(activeViewshed);
-        }
-      }
     },
     /**
      * should return all default values of the configuration

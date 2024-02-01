@@ -130,15 +130,15 @@ export default function createViewshedManager(app, config, categoryHelper) {
   /** @type {import("vue").Ref<import("@vcmap/core").EditFeaturesSession | import("@vcmap/core").EditGeometrySession | null>} */
   const currentEditSession = shallowRef(null);
 
-  function setCurrentViewshed(viewshed) {
+  let shadowMapChangedListener = () => {};
+
+  function deactivateCurrentViewshed() {
     if (currentIsPersisted.value && currentViewshed.value) {
       currentViewshed.value.deactivate();
       categoryHelper.setVisibility(currentViewshed.value.name, false);
     } else {
       currentViewshed.value?.destroy();
     }
-    currentViewshed.value = viewshed;
-    currentViewshed.value?.activate(app.maps.activeMap);
   }
 
   /**
@@ -146,13 +146,35 @@ export default function createViewshedManager(app, config, categoryHelper) {
    * @param {boolean} [clear=true] - Indicates whether to clear the selection.
    */
   function stop(clear = true) {
+    shadowMapChangedListener();
     removeInteraction();
-    setCurrentViewshed(null);
+    deactivateCurrentViewshed();
+    currentViewshed.value = null;
     if (clear) {
       categoryHelper.clearSelection();
     }
     currentIsPersisted.value = null;
     mode.value = null;
+  }
+
+  /**
+   * activates a viewshed, and adds a Listener to the shadowMapChangedEvent to deactivate the viewshed plugin.
+   * @param {Viewshed} viewshed
+   */
+  function activateViewshed(viewshed) {
+    shadowMapChangedListener();
+    // deactivate existing Viewsheds
+    deactivateCurrentViewshed();
+    if (app.maps.activeMap instanceof CesiumMap) {
+      currentViewshed.value = viewshed;
+      viewshed.activate(app.maps.activeMap);
+      shadowMapChangedListener =
+        app.maps.activeMap.shadowMapChanged.addEventListener((newShadowMap) => {
+          if (newShadowMap !== currentViewshed.value?.shadowMap) {
+            stop(false);
+          }
+        });
+    }
   }
 
   async function createViewshed(viewshedType) {
@@ -163,19 +185,16 @@ export default function createViewshedManager(app, config, categoryHelper) {
     const { featureInteraction } = eventHandler;
 
     // create new viewshed instance
-    currentViewshed.value = new Viewshed(
-      {
-        viewshedType,
-        colorOptions: {
-          visibleColor: config.visibleColor,
-          shadowColor: config.shadowColor,
-        },
-        heightOffset:
-          heightMode.value === HeightModes.ABSOLUTE ? 0 : defaultHeightOffset,
+    const viewshed = new Viewshed({
+      viewshedType,
+      colorOptions: {
+        visibleColor: config.visibleColor,
+        shadowColor: config.shadowColor,
       },
-      /** @type {import("@vcmap/core").CesiumMap} */ (app.maps.activeMap),
-    );
-
+      heightOffset:
+        heightMode.value === HeightModes.ABSOLUTE ? 0 : defaultHeightOffset,
+    });
+    activateViewshed(viewshed);
     // setup viewshed create interaction
     const interaction = new ViewshedInteraction(currentViewshed.value);
 
@@ -274,7 +293,7 @@ export default function createViewshedManager(app, config, categoryHelper) {
   function changeMode(viewshedMode, viewshed) {
     removeInteraction();
     if (currentViewshed.value !== viewshed) {
-      setCurrentViewshed(viewshed);
+      activateViewshed(viewshed);
       heightMode.value = viewshed.heightOffset
         ? HeightModes.RELATIVE
         : HeightModes.ABSOLUTE;
@@ -387,7 +406,8 @@ export default function createViewshedManager(app, config, categoryHelper) {
     setupMultiSelect() {
       removeInteraction();
       mode.value = ViewshedPluginModes.MULTI_SELECT;
-      setCurrentViewshed(null);
+      deactivateCurrentViewshed();
+      currentViewshed.value = null;
     },
     mode,
     heightMode,

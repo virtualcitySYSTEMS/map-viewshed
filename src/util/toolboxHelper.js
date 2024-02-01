@@ -97,7 +97,6 @@ function createViewshedToolbox(app, manager, name, tools) {
       toolbox.action.disabled = false;
     } else {
       toolbox.action.disabled = true;
-      manager.stop();
     }
   });
 
