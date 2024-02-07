@@ -3,6 +3,7 @@ import { Category, CesiumMap, VcsEvent } from '@vcmap/core';
 import {
   createListExportAction,
   createListImportAction,
+  createSupportedMapMappingFunction,
   downloadText,
 } from '@vcmap/ui';
 import { name } from '../package.json';
@@ -90,6 +91,14 @@ export async function createCategory(app) {
         removable: true,
       },
     );
+
+  collectionComponent.addItemMapping({
+    mappingFunction: createSupportedMapMappingFunction(
+      [CesiumMap.className],
+      app.maps,
+    ),
+    owner: name,
+  });
 
   const itemMappingFunction = (item, c, listItem) => {
     listItem.title = item.properties.title;
