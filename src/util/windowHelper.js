@@ -89,7 +89,7 @@ export function setupViewshedWindow(manager, app, collectionComponent) {
             ...editor,
             id: windowId,
             parentId: 'category-manager',
-            slot: WindowSlot.DYNAMIC_LEFT,
+            slot: WindowSlot.DYNAMIC_CHILD,
           },
           name,
         );
