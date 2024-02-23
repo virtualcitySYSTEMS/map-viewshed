@@ -5,6 +5,7 @@ import {
   createListImportAction,
   createSupportedMapMappingFunction,
   downloadText,
+  NotificationType,
 } from '@vcmap/ui';
 import { name } from '../package.json';
 import Viewshed from './viewshed.js';
@@ -142,16 +143,52 @@ export async function createCategory(app) {
   const { action: importAction, destroy: destroyImportAction } =
     createListImportAction(
       async (files) => {
-        await Promise.all(
+        const { vueI18n } = app;
+        const results = await Promise.all(
           files.map(async (file) => {
             const text = await file.text();
-            const viewshedOptions = JSON.parse(text);
-            viewshedOptions.forEach((options) => {
-              const viewshed = new Viewshed(options);
-              category.collection.add(viewshed);
-            });
+            try {
+              const parsedOptions = JSON.parse(text);
+              return parsedOptions.map((options) => new Viewshed(options));
+            } catch (e) {
+              app.notifier.add({
+                type: NotificationType.ERROR,
+                message: vueI18n.t('components.import.failure', {
+                  fileName: file.name,
+                }),
+              });
+            }
+            return [];
           }),
         );
+
+        const viewshedsToImport = results.flat();
+        const imported = viewshedsToImport
+          .map((v) => category.collection.add(v))
+          .filter((id) => id != null);
+        const importedDelta = viewshedsToImport.length - imported.length;
+        if (importedDelta > 0) {
+          app.notifier.add({
+            type: NotificationType.WARNING,
+            message: vueI18n.t('components.import.addFailure', [importedDelta]),
+          });
+          return false;
+        }
+        if (imported.length > 0) {
+          app.notifier.add({
+            type: NotificationType.SUCCESS,
+            message: vueI18n.t('components.import.featuresAdded', [
+              imported.length,
+            ]),
+          });
+        } else {
+          app.notifier.add({
+            type: NotificationType.ERROR,
+            message: vueI18n.t('components.import.nothingAdded'),
+          });
+          return false;
+        }
+        return true;
       },
       app.windowManager,
       name,

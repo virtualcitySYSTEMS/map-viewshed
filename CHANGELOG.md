@@ -1,5 +1,9 @@
 # v2.0.8
 
+- add upload feedback
+
+# v2.0.8
+
 - fix window slot
 
 # v2.0.7
