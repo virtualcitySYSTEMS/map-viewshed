@@ -1,6 +1,6 @@
 {
   "name": "@vcmap/viewshed",
-  "version": "2.0.8",
+  "version": "2.0.9",
   "description": "Tool to simulate a \"viewer\" and their field of vision from a certain standpoint in the map. It allows the user to see which areas and buildings can or can't be seen from a specific standpoint, regarding different viewing distances, viewers' sizes and orientations.Th",
   "type": "module",
   "main": "src/index.js",
