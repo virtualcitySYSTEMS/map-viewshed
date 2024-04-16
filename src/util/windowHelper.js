@@ -40,7 +40,7 @@ export function setupViewshedWindow(manager, app, collectionComponent) {
       headerTitle,
       headerIcon,
       styles: { width: '280px', height: 'auto' },
-      infoUrlCallback: app.getHelpUrlCallback('tools/viewshedTool.html'),
+      infoUrlCallback: app.getHelpUrlCallback('tools/viewshed.html'),
     },
   };
 
