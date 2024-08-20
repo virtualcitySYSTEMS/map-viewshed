@@ -44,7 +44,7 @@
 
 <script>
   import { ref } from 'vue';
-  import { VCol, VColorPicker, VContainer, VRow } from 'vuetify/lib';
+  import { VCol, VColorPicker, VContainer, VRow } from 'vuetify/components';
   import {
     AbstractConfigEditor,
     VcsFormSection,
@@ -113,7 +113,7 @@
         apply,
         toolItems: Object.values(ViewshedTypes).map((type) => ({
           value: type,
-          text: `viewshed.${type}`,
+          title: `viewshed.${type}`,
         })),
       };
     },

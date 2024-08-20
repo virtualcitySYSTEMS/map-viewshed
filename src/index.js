@@ -28,6 +28,7 @@ import ViewshedConfigEditor, {
  */
 export default function plugin(config) {
   let viewshedManager;
+  let app;
   let destroy = () => {};
 
   return {
@@ -46,6 +47,7 @@ export default function plugin(config) {
      * @returns {Promise<void>}
      */
     async initialize(vcsUiApp, state) {
+      app = vcsUiApp;
       vcsUiApp.categoryClassRegistry.registerClass(
         this[moduleIdSymbol],
         ViewshedCategory.className,
@@ -72,7 +74,7 @@ export default function plugin(config) {
       const { activeMap } = vcsUiApp.maps;
       function activateCachedViewshed(map) {
         if (state?.mode && state.currentViewshed && map instanceof CesiumMap) {
-          const activeViewshed = new Viewshed(state.currentViewshed, activeMap);
+          const activeViewshed = new Viewshed(state.currentViewshed);
           if (state.mode === ViewshedPluginModes.VIEW) {
             viewshedManager.viewViewshed(activeViewshed);
           } else {
@@ -149,7 +151,14 @@ export default function plugin(config) {
      * @returns {Array<import("@vcmap/ui").PluginConfigEditor>}
      */
     getConfigEditors() {
-      return [{ component: ViewshedConfigEditor }];
+      return [
+        {
+          component: ViewshedConfigEditor,
+          infoUrlCallback: app?.getHelpUrlCallback(
+            '/components/plugins/viewshedToolConfig.html',
+          ),
+        },
+      ];
     },
     destroy,
     i18n: {

@@ -305,6 +305,7 @@ export default class Viewshed extends VcsObject {
         this._shadowCamera.frustum
       ).fov = value * CesiumMath.RADIANS_PER_DEGREE;
       if (this._viewshedType === ViewshedTypes.CONE) {
+        this._updateShadowMap();
         this._updatePrimitive();
       }
     }
@@ -481,7 +482,7 @@ export default class Viewshed extends VcsObject {
   }
 
   _removePrimitive() {
-    if (this._primitive && !this._primitive.isDestroyed?.()) {
+    if (this._primitive && !this._primitive.isDestroyed()) {
       this._scene?.primitives.remove(this._primitive);
       this._primitive.destroy();
       this._primitive = null;

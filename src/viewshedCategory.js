@@ -34,7 +34,7 @@ class ViewshedCategory extends Category {
         this._app?.maps.getByType(CesiumMap.className)[0]
       );
     if (cesiumMap) {
-      return new Viewshed(item, cesiumMap);
+      return new Viewshed(item);
     } else {
       throw new Error('No CesiumMap available');
     }

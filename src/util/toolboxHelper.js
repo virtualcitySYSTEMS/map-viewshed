@@ -1,6 +1,6 @@
 import { CesiumMap } from '@vcmap/core';
 import { ToolboxType } from '@vcmap/ui';
-import { check } from '@vcsuite/check';
+import { check, ofEnum } from '@vcsuite/check';
 import { reactive, watch } from 'vue';
 import { ViewshedTypes } from '../viewshed.js';
 import { ViewshedIcons } from './windowHelper.js';
@@ -44,9 +44,9 @@ function createViewshedToolbox(app, manager, name, tools) {
       selected(newIndex) {
         if (newIndex !== this.currentIndex) {
           this.currentIndex = newIndex;
-          const toolName = this.tools[this.currentIndex].name;
-          manager.createViewshed(toolName);
         }
+        const toolName = this.tools[this.currentIndex].name;
+        manager.createViewshed(toolName);
       },
       tools: tools.flatMap((tool) => {
         if (tool === ViewshedTypes.CONE) {
@@ -119,7 +119,7 @@ function createViewshedToolbox(app, manager, name, tools) {
  * @returns {function():void} Function to remove toolbox component.
  */
 export default function addToolButtons(app, manager, name, tools) {
-  check(tools, [Object.values(ViewshedTypes)]);
+  check(tools, [ofEnum(ViewshedTypes)]);
 
   const { toolbox: createToolbox, destroy: destroyCreateToolbox } =
     createViewshedToolbox(app, manager, name, tools);

@@ -1,12 +1,12 @@
 <template>
   <div>
-    <div v-if="viewshedMode === ViewshedPluginModes.CREATE" class="px-2 py-1">
-      <template v-if="viewshedType === ViewshedTypes.CONE">
+    <div v-if="viewshedMode === ViewshedPluginModes.CREATE">
+      <VcsHelp v-if="viewshedType === ViewshedTypes.CONE">
         {{ $t('viewshed.createDescription') }}
-      </template>
-      <template v-else-if="viewshedType === ViewshedTypes.THREESIXTY">
+      </VcsHelp>
+      <VcsHelp v-else-if="viewshedType === ViewshedTypes.THREESIXTY">
         {{ $t('viewshed.createThreeSixtyDescription') }}
-      </template>
+      </VcsHelp>
     </div>
     <VcsFormSection
       v-else-if="
@@ -41,11 +41,10 @@
             class="pb-1"
           >
             <VcsTextField
-              :value="value"
-              @input="(v) => setPosition(v, key, index)"
+              :model-value="value"
+              @update:model-value="(v) => setPosition(v, key, index)"
               type="number"
               :prefix="key"
-              :show-spin-buttons="true"
               :step="key === 'Z' ? 1 : 0.0001"
               :unit="key === 'Z' ? 'm' : '°'"
               :decimals="key === 'Z' ? 2 : 8"
@@ -53,6 +52,7 @@
                 viewshedMode === ViewshedPluginModes.MOVE &&
                 !(key === 'Z' && heightMode === HeightModes.RELATIVE)
               "
+              :hide-spin-buttons="true"
             />
           </v-col>
         </v-row>
@@ -71,12 +71,12 @@
             :items="
               Object.values(HeightModes).map((item) => ({
                 value: item,
-                text: `viewshed.${item}`,
+                title: `viewshed.${item}`,
               }))
             "
-            :value="heightMode"
-            @input="changeHeightMode"
-          ></VcsSelect>
+            :model-value="heightMode"
+            @update:model-value="changeHeightMode"
+          />
         </v-col>
       </v-row>
     </v-container>
@@ -101,21 +101,22 @@
               </VcsLabel>
             </v-col>
             <v-col class="d-flex justify-end align-center">
-              <span v-if="key === 'distance'">{{ `${value} m` }}</span>
-              <span v-else>{{ `${value} °` }}</span>
+              <span v-if="key === 'distance'">{{
+                `${Math.round(value)} m`
+              }}</span>
+              <span v-else>{{ `${Math.round(value)} °` }}</span>
             </v-col>
           </v-row>
           <v-row no-gutters>
             <v-col>
               <VcsSlider
                 :id="key"
-                :value="value"
-                @input="(v) => setParameter(key, v)"
+                :model-value="value"
+                @update:model-value="(v) => setParameter(key, v)"
                 type="number"
                 step="1"
                 :min="parameterRanges[key][0]"
                 :max="parameterRanges[key][1]"
-                height="15"
               />
             </v-col>
           </v-row>
@@ -144,7 +145,7 @@
       v-else-if="viewshedMode === ViewshedPluginModes.CREATE"
       class="d-flex w-full justify-end px-2 pt-2 pb-1"
     >
-      <VcsFormButton @click="cancel()" variant="filled">
+      <VcsFormButton @click="cancel()" variant="outlined">
         {{ $t('viewshed.cancel') }}
       </VcsFormButton>
     </div>
@@ -163,7 +164,7 @@
     watch,
     watchEffect,
   } from 'vue';
-  import { VCol, VContainer, VDivider, VRow } from 'vuetify/lib';
+  import { VCol, VContainer, VDivider, VRow } from 'vuetify/components';
   import { TransformationMode, Viewpoint } from '@vcmap/core';
   import {
     VcsFormButton,
@@ -173,6 +174,7 @@
     VcsSlider,
     VcsTextField,
     VcsFeatureTransforms,
+    VcsHelp,
   } from '@vcmap/ui';
   import { ViewshedPluginModes, HeightModes } from './viewshedManager.js';
   import Viewshed, { ViewshedTypes } from './viewshed.js';
@@ -197,6 +199,7 @@
       VcsSelect,
       VcsFormButton,
       VcsFeatureTransforms,
+      VcsHelp,
     },
     name: 'ViewshedWindow',
     props: {
@@ -224,6 +227,12 @@
         mode: viewshedMode,
         currentIsPersisted,
       } = viewshedManager;
+
+      /** Whether movement is disabled for the current map */
+      const movementDisabled = ref(
+        app.maps.activeMap?.movementApiCallsDisabled ?? false,
+      );
+      let movementDisabledListener = () => {};
 
       const selection = computed(() => props.selection);
 
@@ -330,11 +339,18 @@
           // only the case for collection component editor
           viewshedManager.editViewshed(viewshed);
         }
+        movementDisabledListener =
+          app.maps.activeMap?.movementDisabledChanged.addEventListener(
+            (options) => {
+              movementDisabled.value = options.apiCalls;
+            },
+          );
       });
 
       onUnmounted(() => {
         removePositionChangedListener();
         deleteCachedViewpoint();
+        movementDisabledListener();
 
         if (!currentIsPersisted.value) {
           // in case of temp editor
@@ -384,6 +400,7 @@
               : 'viewshed.jumpToViewpoint',
             icon: 'mdi-human-male',
             active: !!cachedViewpoint.value,
+            disabled: movementDisabled.value,
             async callback() {
               viewshedManager.moveCurrentViewshed(false);
               if (currentViewshed.value && !cachedViewpoint.value) {
