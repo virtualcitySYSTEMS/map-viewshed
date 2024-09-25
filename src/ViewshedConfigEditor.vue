@@ -97,14 +97,12 @@
     },
     setup(props) {
       /** @type {import("vue").Ref<import("./index.js").ViewshedPluginOptions>} */
-      const localConfig = ref({});
+      const config = props.getConfig();
       /** @type {import("vue").Ref<import("./index.js").ViewshedPluginOptions>} */
-      props.getConfig().then((config) => {
-        localConfig.value = Object.assign(getDefaultOptions(), config);
-      });
+      const localConfig = ref({ ...getDefaultOptions(), ...config });
 
-      async function apply() {
-        await props.setConfig(localConfig.value);
+      function apply() {
+        props.setConfig(localConfig.value);
       }
 
       return {

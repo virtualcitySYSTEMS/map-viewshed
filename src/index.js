@@ -173,7 +173,7 @@ export default function plugin(config) {
           viewpoint: 'Viewpoint',
           viewshed: 'Viewshed',
           heightMode: 'Height mode',
-          relative: 'Relativ to ground',
+          relative: 'Relative to ground',
           absolute: 'Absolute',
           new: 'New',
           cancel: 'Cancel',

@@ -32,6 +32,7 @@
             :transformation-mode="TransformationMode.TRANSLATE"
             :feature-properties="{ altitudeMode: 'absolute' }"
             :allow-z-input="true"
+            class="w-100"
           />
         </v-row>
         <v-row v-else no-gutters>
@@ -62,12 +63,13 @@
     <v-container class="px-1 py-0">
       <v-row no-gutters>
         <v-col>
-          <VcsLabel>
+          <VcsLabel html-for="heightMode">
             {{ $t('viewshed.heightMode') }}
           </VcsLabel>
         </v-col>
         <v-col>
           <VcsSelect
+            id="heightMode"
             :items="
               Object.values(HeightModes).map((item) => ({
                 value: item,
@@ -94,9 +96,9 @@
             (viewshedType === ViewshedTypes.CONE && key !== 'showPrimitive')
           "
         >
-          <v-row no-gutters class="pr-1">
+          <v-row no-gutters class="px-1">
             <v-col>
-              <VcsLabel :html-for="key">
+              <VcsLabel :html-for="key" class="py-0">
                 {{ $t(`viewshed.${key}`) }}
               </VcsLabel>
             </v-col>
@@ -111,6 +113,7 @@
             <v-col>
               <VcsSlider
                 :id="key"
+                class="pa-0"
                 :model-value="value"
                 @update:model-value="(v) => setParameter(key, v)"
                 type="number"
