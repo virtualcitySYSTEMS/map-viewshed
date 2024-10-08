@@ -73,9 +73,12 @@ export default function plugin(config) {
 
       const { activeMap } = vcsUiApp.maps;
       function activateCachedViewshed(map) {
-        if (state?.mode && state.currentViewshed && map instanceof CesiumMap) {
-          const activeViewshed = new Viewshed(state.currentViewshed);
-          if (state.mode === ViewshedPluginModes.VIEW) {
+        if (state?.m && state.cv && map instanceof CesiumMap) {
+          if (state.cv.properties.title) {
+            delete state.cv.properties.title;
+          }
+          const activeViewshed = new Viewshed(state.cv);
+          if (state.m === ViewshedPluginModes.VIEW) {
             viewshedManager.viewViewshed(activeViewshed);
           } else {
             viewshedManager.editViewshed(activeViewshed);
@@ -141,10 +144,16 @@ export default function plugin(config) {
      * @returns {ViewshedPluginState}
      */
     getState() {
-      return {
-        mode: viewshedManager.mode.value,
-        currentViewshed: viewshedManager.currentViewshed.value?.toJSON(),
-      };
+      const state = {};
+      const mode = viewshedManager.mode.value;
+      const currentViewshed = viewshedManager.currentViewshed.value?.toJSON();
+
+      if (mode !== null && mode !== 'create' && currentViewshed) {
+        state.m = mode;
+        state.cv = currentViewshed;
+      }
+
+      return state;
     },
     /**
      * components for configuring the plugin and/ or custom items defined by the plugin
@@ -172,6 +181,7 @@ export default function plugin(config) {
           showPrimitive: 'Show viewpoint',
           viewpoint: 'Viewpoint',
           viewshed: 'Viewshed',
+          viewshedCategory: 'Viewsheds',
           heightMode: 'Height mode',
           relative: 'Relative to ground',
           absolute: 'Absolute',
@@ -207,14 +217,15 @@ export default function plugin(config) {
           position: 'Position',
           showPrimitive: 'Viewpoint zeigen',
           viewpoint: 'Viewpoint',
+          viewshedCategory: 'Sichtbarkeitsanalysen',
           viewshed: 'Viewshed',
           heightMode: 'Höhenmodus',
           relative: 'Relativ zum Gelände',
           absolute: 'Absolut',
           new: 'Neu',
           cancel: 'Abbrechen',
-          [ViewshedTypes.CONE]: 'Kegel Viewshed',
-          [ViewshedTypes.THREESIXTY]: '360° Viewshed',
+          [ViewshedTypes.CONE]: 'Kegel Sichtkegelanalyse',
+          [ViewshedTypes.THREESIXTY]: '360° Sichtbarkeitsanalyse',
           create: 'Erzeuge',
           addToMyWorkspace: 'Zu Mein Arbeitsbereich hinzufügen',
           temporary: 'Temporärer',

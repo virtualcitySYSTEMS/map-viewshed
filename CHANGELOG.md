@@ -3,6 +3,7 @@
 - update @vcmap/core and @vcmap/ui to 6.x
 - disables jump to viewpoint if movementApiCallsDisabled is true for activeMap
 - fixes bug where shadowMap not updating when changing field of view
+- naming of state parameters changed (mode is now m; currentViewshed is now cv;)
 
 # v2.0.10
 

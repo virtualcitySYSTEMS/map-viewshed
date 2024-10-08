@@ -83,7 +83,7 @@ export async function createCategory(app) {
       {
         type: ViewshedCategory.className,
         name: 'Viewsheds',
-        title: 'Viewsheds',
+        title: 'viewshed.viewshedCategory',
       },
       name,
       {
