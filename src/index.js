@@ -169,7 +169,7 @@ export default function plugin(config) {
         },
       ];
     },
-    destroy,
+    destroy: () => destroy(),
     i18n: {
       en: {
         viewshed: {

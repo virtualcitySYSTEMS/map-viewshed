@@ -55,7 +55,7 @@
     "vuetify": "^3.7.2"
   },
   "devDependencies": {
-    "@vcmap/plugin-cli": "^4.0.0-rc.4",
+    "@vcmap/plugin-cli": "^4.0.0-rc.5",
     "@vcsuite/eslint-config": "^3.0.8",
     "@vitest/coverage-v8": "^2.0.1",
     "jest-canvas-mock": "^2.5.2",
