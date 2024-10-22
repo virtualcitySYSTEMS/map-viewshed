@@ -74,7 +74,6 @@
 
   export default {
     name: 'ViewshedConfigEditor',
-    title: 'Viewshed Editor',
     components: {
       AbstractConfigEditor,
       VcsFormSection,

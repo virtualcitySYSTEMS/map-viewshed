@@ -163,6 +163,7 @@ export default function plugin(config) {
       return [
         {
           component: ViewshedConfigEditor,
+          title: 'viewshed.editor.title',
           infoUrlCallback: app?.getHelpUrlCallback(
             '/components/plugins/viewshedToolConfig.html',
           ),
@@ -186,8 +187,8 @@ export default function plugin(config) {
           absolute: 'Absolute',
           new: 'New',
           cancel: 'Cancel',
-          [ViewshedTypes.CONE]: 'Cone Viewshed',
-          [ViewshedTypes.THREESIXTY]: '360° Viewshed',
+          [ViewshedTypes.CONE]: 'Cone viewshed analysis',
+          [ViewshedTypes.THREESIXTY]: '360° viewshed analysis',
           create: 'Create',
           addToMyWorkspace: 'Add to My Workspace',
           temporary: 'Temporary',
@@ -200,6 +201,7 @@ export default function plugin(config) {
             'Click the map twice. First click places the origin, second defines the distance of the viewshed.',
           remove: 'Remove',
           editor: {
+            title: 'Viewshed Editor',
             general: 'General Settings',
             visibleColor: 'Visible color',
             shadowColor: 'Shadow color',
@@ -223,7 +225,7 @@ export default function plugin(config) {
           new: 'Neu',
           cancel: 'Abbrechen',
           [ViewshedTypes.CONE]: 'Sichtkegelanalyse',
-          [ViewshedTypes.THREESIXTY]: '360° Sichtbarkeitsanalyse',
+          [ViewshedTypes.THREESIXTY]: '360° Sichtsanalyse',
           create: 'Erzeuge',
           addToMyWorkspace: 'Zu Mein Arbeitsbereich hinzufügen',
           temporary: 'Temporäre',
@@ -236,6 +238,7 @@ export default function plugin(config) {
             'Klicken Sie zweimal in die Karte. Der erste Klick platziert den Ursprung, der zweite die Distanz der Sichtbarkeitsanalyse.',
           remove: 'Entfernen',
           editor: {
+            title: 'Viewshed Editor',
             general: 'Allgemeine Einstellungen',
             visibleColor: 'Sichtbarer Bereich',
             shadowColor: 'Nicht sichtbarer Bereich',
