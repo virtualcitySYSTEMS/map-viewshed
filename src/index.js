@@ -166,6 +166,7 @@ export default function plugin(config) {
           title: 'viewshed.editor.title',
           infoUrlCallback: app?.getHelpUrlCallback(
             '/components/plugins/viewshedToolConfig.html',
+            'app-configurator',
           ),
         },
       ];
