@@ -190,7 +190,10 @@ export default function plugin(config) {
           cancel: 'Cancel',
           [ViewshedTypes.CONE]: 'Cone viewshed analysis',
           [ViewshedTypes.THREESIXTY]: '360° viewshed analysis',
-          create: 'Create',
+          create: {
+            [ViewshedTypes.CONE]: 'Create cone viewshed analysis',
+            [ViewshedTypes.THREESIXTY]: 'Create 360° viewshed analysis',
+          },
           addToMyWorkspace: 'Add to My Workspace',
           temporary: 'Temporary',
           jumpToViewpoint: 'Jump to viewpoint',
@@ -227,7 +230,10 @@ export default function plugin(config) {
           cancel: 'Abbrechen',
           [ViewshedTypes.CONE]: 'Sichtkegelanalyse',
           [ViewshedTypes.THREESIXTY]: '360° Sichtsanalyse',
-          create: 'Erzeuge',
+          create: {
+            [ViewshedTypes.CONE]: 'Sichtkegelanalyse erstellen',
+            [ViewshedTypes.THREESIXTY]: '360° Sichtanalyse erstellen',
+          },
           addToMyWorkspace: 'Zu Mein Arbeitsbereich hinzufügen',
           temporary: 'Temporäre',
           jumpToViewpoint: 'Zu Standpunkt springen',

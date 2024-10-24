@@ -61,10 +61,7 @@ export function setupViewshedWindow(manager, app, collectionComponent) {
       if (manager.currentIsPersisted.value) {
         headerTitle.value = manager.currentViewshed.value.properties.title;
       } else if (manager.mode.value === ViewshedPluginModes.CREATE) {
-        headerTitle.value = [
-          'viewshed.create',
-          `viewshed.${manager.currentViewshed.value.type}`,
-        ];
+        headerTitle.value = `viewshed.create.${manager.currentViewshed.value.type}`;
       } else {
         headerTitle.value = [
           'viewshed.temporary',

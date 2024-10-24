@@ -53,13 +53,13 @@ function createViewshedToolbox(app, manager, name, tools) {
           return {
             name: ViewshedTypes.CONE,
             icon: ViewshedIcons[ViewshedTypes.CONE],
-            title: `viewshed.${ViewshedTypes.CONE}`,
+            title: `viewshed.create.${ViewshedTypes.CONE}`,
           };
         } else if (tool === ViewshedTypes.THREESIXTY) {
           return {
             name: ViewshedTypes.THREESIXTY,
             icon: ViewshedIcons[ViewshedTypes.THREESIXTY],
-            title: `viewshed.${ViewshedTypes.THREESIXTY}`,
+            title: `viewshed.create.${ViewshedTypes.THREESIXTY}`,
           };
         } else {
           return [];
