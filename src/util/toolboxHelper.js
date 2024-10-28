@@ -28,7 +28,7 @@ function createViewshedToolbox(app, manager, name, tools) {
       currentIndex: 0,
       active: false,
       background: false,
-      disabled: false,
+      disabled: !(app.maps.activeMap instanceof CesiumMap),
       callback() {
         if (this.active) {
           if (this.background && manager.currentViewshed.value) {

@@ -1,3 +1,7 @@
+# v3.0.2
+
+- fixes bug where the tool was active for unsupported maps
+
 # v3.0.0
 
 - updates @vcmap/core and @vcmap/ui to 6.x
@@ -9,7 +13,7 @@
 
 - fix link to help document
 
-# v2.0.8
+# v2.0.9
 
 - add upload feedback
 
