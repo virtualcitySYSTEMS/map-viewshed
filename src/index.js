@@ -74,9 +74,6 @@ export default function plugin(config) {
       const { activeMap } = vcsUiApp.maps;
       function activateCachedViewshed(map) {
         if (state?.m && state.cv && map instanceof CesiumMap) {
-          if (state.cv.properties.title) {
-            delete state.cv.properties.title;
-          }
           const activeViewshed = new Viewshed(state.cv);
           if (state.m === ViewshedPluginModes.VIEW) {
             viewshedManager.viewViewshed(activeViewshed);
@@ -141,9 +138,10 @@ export default function plugin(config) {
     },
     /**
      * should return the plugins state
+     * @param {boolean} forUrl
      * @returns {ViewshedPluginState}
      */
-    getState() {
+    getState(forUrl) {
       const state = {};
       const mode = viewshedManager.mode.value;
       const currentViewshed = viewshedManager.currentViewshed.value?.toJSON();
@@ -151,6 +149,13 @@ export default function plugin(config) {
       if (mode !== null && mode !== 'create' && currentViewshed) {
         state.m = mode;
         state.cv = currentViewshed;
+        if (forUrl && state.cv.properties?.title) {
+          if (Object.keys(state.properties).length === 1) {
+            delete state.cv.properties;
+          } else {
+            delete state.cv.properties.title;
+          }
+        }
       }
 
       return state;

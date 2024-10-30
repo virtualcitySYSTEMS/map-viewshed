@@ -24,6 +24,7 @@ import ViewshedInteraction from './viewshedInteraction.js';
  * @property {import("vue").ShallowRef<import("./viewshed.js").default | null>} currentViewshed The current viewshed, that is displayed in the map.
  * @property {import("vue").Ref<null | boolean>} currentIsPersisted Whether current viewshed is persisted or not.
  * @property {import("vue").Ref<import("@vcmap/core").EditFeaturesSession | import("@vcmap/core").EditGeometrySession | null>} currentEditSession The current edit session, when in MOVE mode. Read only.
+ * @property {import("vue").ShallowRef<import("ol").Feature[]>} currentFeatures The feature that is created for feature/geometry editing in {@link moveCurrentViewshed}. Needed to match the EditorManager API from the UI.
  * @property {function(import("./viewshed.js").ViewshedTypes): void} createViewshed Creates a new viewshed and stops a running create process.
  * @property {function(import("./viewshed.js").default):void} viewViewshed Changes mode to VIEW for passed Viewshed.
  * @property {function(import("./viewshed.js").default):void} editViewshed Changes mode to EDIT for passed Viewshed.
@@ -129,6 +130,11 @@ export default function createViewshedManager(app, config, categoryHelper) {
   let removeInteraction = () => {};
   /** @type {import("vue").Ref<import("@vcmap/core").EditFeaturesSession | import("@vcmap/core").EditGeometrySession | null>} */
   const currentEditSession = shallowRef(null);
+  /**
+   * The feature that is created for feature/geometry editing in {@link moveCurrentViewshed}. Needed to match the EditorManager API from the UI.
+   * @type {import("vue").ShallowRef<import("ol").Feature[]>}
+   */
+  const currentFeatures = shallowRef([]);
 
   let shadowMapChangedListener = () => {};
 
@@ -242,6 +248,8 @@ export default function createViewshedManager(app, config, categoryHelper) {
       } = createLayerWithFeature(currentViewshed.value.position);
       app.layers.add(layer);
 
+      currentFeatures.value = [feature];
+
       if (heightMode.value === HeightModes.ABSOLUTE) {
         currentEditSession.value = startEditFeaturesSession(app, layer);
         currentEditSession.value.setFeatures([feature]);
@@ -276,6 +284,7 @@ export default function createViewshedManager(app, config, categoryHelper) {
         }
         currentEditSession.value?.stop();
         currentEditSession.value = null;
+        currentFeatures.value = [];
         app.layers.remove(layer);
         destroyLayerWithFeature();
         mode.value = ViewshedPluginModes.EDIT;
@@ -382,6 +391,7 @@ export default function createViewshedManager(app, config, categoryHelper) {
     currentViewshed,
     currentIsPersisted,
     currentEditSession,
+    currentFeatures,
     createViewshed,
     viewViewshed(viewshed) {
       changeMode(ViewshedPluginModes.VIEW, viewshed);

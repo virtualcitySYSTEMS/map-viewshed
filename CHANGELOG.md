@@ -1,3 +1,8 @@
+# v3.0.3
+
+- fixes bug where temporary viewsheds could not be created from state
+- fixes bug where placeOnTerrain was not possible
+
 # v3.0.2
 
 - fixes bug where the tool was active for unsupported maps
