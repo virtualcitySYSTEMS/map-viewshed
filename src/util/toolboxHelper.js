@@ -21,52 +21,95 @@ import { ViewshedPluginModes } from '../viewshedManager.js';
  * @returns {ViewshedToolbox} A select toolbox with buttons to create 360 and cone viewshed.
  */
 function createViewshedToolbox(app, manager, name, tools) {
-  const toolbox = {
-    type: ToolboxType.SELECT,
-    action: reactive({
-      name,
-      currentIndex: 0,
-      active: false,
-      background: false,
-      disabled: !(app.maps.activeMap instanceof CesiumMap),
-      callback() {
-        if (this.active) {
-          if (this.background && manager.currentViewshed.value) {
-            manager.editViewshed(manager.currentViewshed.value);
+  /**
+   * @param {string} tool The tool to create.
+   * @returns {{name:ViewshedTypes, icon:string, title:string, } | undefined} A tool object.
+   */
+  function parseTool(tool) {
+    if (tool === ViewshedTypes.CONE) {
+      return {
+        name: ViewshedTypes.CONE,
+        icon: ViewshedIcons[ViewshedTypes.CONE],
+        title: `viewshed.create.${ViewshedTypes.CONE}`,
+      };
+    } else if (tool === ViewshedTypes.THREESIXTY) {
+      return {
+        name: ViewshedTypes.THREESIXTY,
+        icon: ViewshedIcons[ViewshedTypes.THREESIXTY],
+        title: `viewshed.create.${ViewshedTypes.THREESIXTY}`,
+      };
+    } else {
+      return undefined;
+    }
+  }
+
+  let toolbox;
+  let currentViewshedWatcher;
+  if (tools.length === 1) {
+    const tool = parseTool(tools[0]);
+    toolbox = {
+      type: ToolboxType.SINGLE,
+      action: reactive({
+        ...tool,
+        active: false,
+        background: false,
+        disabled: !(app.maps.activeMap instanceof CesiumMap),
+        callback() {
+          if (this.active) {
+            if (this.background && manager.currentViewshed.value) {
+              manager.editViewshed(manager.currentViewshed.value);
+            } else {
+              manager.stop();
+            }
           } else {
-            manager.stop();
+            manager.createViewshed(tool.name);
           }
-        } else {
+        },
+      }),
+    };
+  } else {
+    toolbox = {
+      type: ToolboxType.SELECT,
+      action: reactive({
+        name,
+        currentIndex: 0,
+        active: false,
+        background: false,
+        disabled: !(app.maps.activeMap instanceof CesiumMap),
+        callback() {
+          if (this.active) {
+            if (this.background && manager.currentViewshed.value) {
+              manager.editViewshed(manager.currentViewshed.value);
+            } else {
+              manager.stop();
+            }
+          } else {
+            const toolName = this.tools[this.currentIndex].name;
+            manager.createViewshed(toolName);
+          }
+        },
+        selected(newIndex) {
+          if (newIndex !== this.currentIndex) {
+            this.currentIndex = newIndex;
+          }
           const toolName = this.tools[this.currentIndex].name;
           manager.createViewshed(toolName);
-        }
-      },
-      selected(newIndex) {
-        if (newIndex !== this.currentIndex) {
-          this.currentIndex = newIndex;
-        }
-        const toolName = this.tools[this.currentIndex].name;
-        manager.createViewshed(toolName);
-      },
-      tools: tools.flatMap((tool) => {
-        if (tool === ViewshedTypes.CONE) {
-          return {
-            name: ViewshedTypes.CONE,
-            icon: ViewshedIcons[ViewshedTypes.CONE],
-            title: `viewshed.create.${ViewshedTypes.CONE}`,
-          };
-        } else if (tool === ViewshedTypes.THREESIXTY) {
-          return {
-            name: ViewshedTypes.THREESIXTY,
-            icon: ViewshedIcons[ViewshedTypes.THREESIXTY],
-            title: `viewshed.create.${ViewshedTypes.THREESIXTY}`,
-          };
-        } else {
-          return [];
-        }
+        },
+        tools: tools.flatMap(parseTool),
       }),
-    }),
-  };
+    };
+
+    currentViewshedWatcher = watch(
+      manager.currentViewshed,
+      (currentViewshed) => {
+        if (currentViewshed) {
+          toolbox.action.currentIndex = toolbox.action.tools.findIndex(
+            (tool) => tool.name === currentViewshed.type,
+          );
+        }
+      },
+    );
+  }
 
   const viewshedModeWatcher = watch(manager.mode, (mode) => {
     if (mode === ViewshedPluginModes.VIEW) {
@@ -81,17 +124,6 @@ function createViewshedToolbox(app, manager, name, tools) {
     }
   });
 
-  const currentViewshedWatcher = watch(
-    manager.currentViewshed,
-    (currentViewshed) => {
-      if (currentViewshed) {
-        toolbox.action.currentIndex = toolbox.action.tools.findIndex(
-          (tool) => tool.name === currentViewshed.type,
-        );
-      }
-    },
-  );
-
   const mapChangedListener = app.maps.mapActivated.addEventListener((map) => {
     if (map instanceof CesiumMap) {
       toolbox.action.disabled = false;
@@ -103,7 +135,7 @@ function createViewshedToolbox(app, manager, name, tools) {
   return {
     destroy() {
       viewshedModeWatcher();
-      currentViewshedWatcher();
+      currentViewshedWatcher?.();
       mapChangedListener();
     },
     toolbox,

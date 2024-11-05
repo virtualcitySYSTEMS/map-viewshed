@@ -1,3 +1,7 @@
+# v3.0.4
+
+- fixes bug where setting a single tool in the configuration file would fail
+
 # v3.0.3
 
 - fixes bug where temporary viewsheds could not be created from state
