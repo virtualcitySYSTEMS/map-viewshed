@@ -1,4 +1,5 @@
 import {
+  Camera,
   Color,
   ColorGeometryInstanceAttribute,
   GeometryInstance,
@@ -9,33 +10,44 @@ import {
   SphereOutlineGeometry,
   Transforms,
 } from '@vcmap-cesium/engine';
-import { VcsCameraPrimitive } from '@vcmap/core';
+import { VcsCameraPrimitive, VcsCameraPrimitiveOptions } from '@vcmap/core';
 
-/**
- * @type {import("@vcmap-cesium/engine").Color}
- */
 const scratchColor = new Color();
-/**
- * @type {import("@vcmap-cesium/engine").Matrix4}
- */
 const scratchMatrix = new Matrix4();
 
-/**
- * @class
- * @extends VcsCameraPrimitive
- */
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore
 class ViewshedCameraPrimitive extends VcsCameraPrimitive {
-  constructor(options) {
-    super(options);
-    /** @type {boolean} */
-    this.spot = options.spot;
+  static get className(): string {
+    return 'ViewshedCameraPrimitive';
   }
 
-  /**
-   * Updates the camera primitive.
-   * @param {unknown} frameState
-   */
-  update(frameState) {
+  spot: boolean;
+
+  private _allowPicking: boolean;
+
+  private _color: Color = Color.WHITE;
+
+  private _camera: Camera;
+
+  private _planesPrimitives: Primitive[] = [];
+
+  private _outlinePrimitives: Primitive[] = [];
+
+  constructor(
+    options: VcsCameraPrimitiveOptions & {
+      spot: boolean;
+      camera: Camera;
+      allowPicking: boolean;
+    },
+  ) {
+    super(options);
+    this.spot = options.spot;
+    this._camera = options.camera;
+    this._allowPicking = options.allowPicking;
+  }
+
+  update(frameState: unknown): void {
     if (!this.show) {
       return;
     }
@@ -50,7 +62,7 @@ class ViewshedCameraPrimitive extends VcsCameraPrimitive {
           scratchMatrix,
         );
         planesPrimitives[0] = new Primitive({
-          allowPicking: this.allowPicking,
+          allowPicking: this._allowPicking,
           geometryInstances: new GeometryInstance({
             geometry: new SphereGeometry({
               radius: 2,
@@ -70,7 +82,7 @@ class ViewshedCameraPrimitive extends VcsCameraPrimitive {
         });
 
         outlinePrimitives[0] = new Primitive({
-          allowPicking: this.allowPicking,
+          allowPicking: this._allowPicking,
           geometryInstances: new GeometryInstance({
             geometry: new SphereOutlineGeometry({
               radius: 2,
@@ -89,7 +101,9 @@ class ViewshedCameraPrimitive extends VcsCameraPrimitive {
       }
       const { length } = planesPrimitives;
       for (let i = 0; i < length; ++i) {
+        // @ts-expect-error update
         outlinePrimitives[i].update(frameState);
+        // @ts-expect-error update
         planesPrimitives[i].update(frameState);
       }
     } else {

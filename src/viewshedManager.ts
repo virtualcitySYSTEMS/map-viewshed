@@ -1,7 +1,10 @@
-import { nextTick, ref, shallowRef } from 'vue';
+import { nextTick, Ref, ref, ShallowRef, shallowRef } from 'vue';
 import {
   CesiumMap,
+  EditFeaturesSession,
+  EditGeometrySession,
   EventType,
+  FeatureAtPixelInteraction,
   Projection,
   SessionType,
   VectorLayer,
@@ -12,73 +15,95 @@ import {
   wgs84Projection,
 } from '@vcmap/core';
 import { HeightReference } from '@vcmap-cesium/engine';
+import { getLogger } from '@vcsuite/logger';
 import { Feature } from 'ol';
 import { Point } from 'ol/geom';
 import { Style } from 'ol/style.js';
 import { unByKey } from 'ol/Observable.js';
-import Viewshed from './viewshed.js';
+import { Coordinate } from 'ol/coordinate.js';
+import { VcsUiApp } from '@vcmap/ui';
+import { name } from '../package.json';
+import Viewshed, { ViewshedTypes } from './viewshed.js';
 import ViewshedInteraction from './viewshedInteraction.js';
+import { ViewshedPluginOptions } from './index.js';
+import { ViewshedCategoryHelper } from './viewshedCategory.js';
 
 /**
- * @typedef {Object} ViewshedManager
- * @property {import("vue").ShallowRef<import("./viewshed.js").default | null>} currentViewshed The current viewshed, that is displayed in the map.
- * @property {import("vue").Ref<null | boolean>} currentIsPersisted Whether current viewshed is persisted or not.
- * @property {import("vue").Ref<import("@vcmap/core").EditFeaturesSession | import("@vcmap/core").EditGeometrySession | null>} currentEditSession The current edit session, when in MOVE mode. Read only.
- * @property {import("vue").ShallowRef<import("ol").Feature[]>} currentFeatures The feature that is created for feature/geometry editing in {@link moveCurrentViewshed}. Needed to match the EditorManager API from the UI.
- * @property {function(import("./viewshed.js").ViewshedTypes): void} createViewshed Creates a new viewshed and stops a running create process.
- * @property {function(import("./viewshed.js").default):void} viewViewshed Changes mode to VIEW for passed Viewshed.
- * @property {function(import("./viewshed.js").default):void} editViewshed Changes mode to EDIT for passed Viewshed.
- * @property {function(boolean):void} moveCurrentViewshed Changes mode to MOVE. If heightMode is ABSOLUTE a translate EditFeatureSession is started, if RELATIVE a EditGeometrySession is started.
- * @property {function():void} setupMultiSelect Changes mode to MULTI_SELECT.
- * @property {function():void} persistCurrent Adds current viewshed to the category collection.
- * @property {import("vue").Ref<ViewshedPluginModes | null>} mode Viewshed mode. Should only be used to watch and get the mode, not to set the mode.
- * @property {import("vue").Ref<HeightModes>} heightMode The height mode the viewshed plugin is currently in. Use changeHeightMode to change height mode when there is a currentViewshed.
- * @property {function():void} changeHeightMode Sets heightMode and calculates the Z value according to the input heightMode.
- * @property {function():void} placeCurrentFeaturesOnTerrain Places viewshed on terrain. Only available when in 'move' mode and height mode 'absolute'.
- * @property {function(boolean=):void} stop Stops the creation and removes current viewshed.
- * @property {function():void} destroy Destroys the viewshed manager.
+ * ViewshedManager interface for managing viewsheds
  */
-
-/**
- * @enum {string}
- * @property {string} ABSOLUTE Absolute
- * @property {string} RELATIVE Relative to ground
- */
-export const HeightModes = {
-  ABSOLUTE: 'absolute',
-  RELATIVE: 'relative',
+export type ViewshedManager = {
+  /** The current viewshed, that is displayed in the map. */
+  currentViewshed: ShallowRef<Viewshed | null>;
+  /** Whether current viewshed is persisted or not. */
+  currentIsPersisted: Ref<null | boolean>;
+  /** The current edit session, when in MOVE mode. Read only. */
+  currentEditSession: Ref<EditFeaturesSession | EditGeometrySession | null>;
+  /** The feature that is created for feature/geometry editing in moveCurrentViewshed. Needed to match the EditorManager API from the UI. */
+  currentFeatures: ShallowRef<Feature[]>;
+  /** Creates a new viewshed and stops a running create process. */
+  createViewshed(viewshedType: ViewshedTypes): Promise<void>;
+  /** Changes mode to VIEW for passed Viewshed. */
+  viewViewshed(viewshed: Viewshed): void;
+  /** Changes mode to EDIT for passed Viewshed. */
+  editViewshed(viewshed: Viewshed): void;
+  /** Changes mode to MOVE. If heightMode is ABSOLUTE a translate EditFeatureSession is started, if RELATIVE a EditGeometrySession is started. */
+  moveCurrentViewshed(activate: boolean): void;
+  /** Changes mode to MULTI_SELECT. */
+  setupMultiSelect(): void;
+  /** Adds current viewshed to the category collection. */
+  persistCurrent(): void;
+  /** Viewshed mode. Should only be used to watch and get the mode, not to set the mode. */
+  mode: Ref<ViewshedPluginModes | null>;
+  /** The height mode the viewshed plugin is currently in. Use changeHeightMode to change height mode when there is a currentViewshed. */
+  heightMode: Ref<HeightModes>;
+  /** Sets heightMode and calculates the Z value according to the input heightMode. */
+  changeHeightMode(newHeightMode: HeightModes): void;
+  /** Places viewshed on terrain. Only available when in 'move' mode and height mode 'absolute'. */
+  placeCurrentFeaturesOnTerrain(): Promise<void>;
+  /** Stops the creation and removes current viewshed. */
+  stop(clear?: boolean): void;
+  /** Destroys the viewshed manager. */
+  destroy(): void;
 };
 
-/**
- * @enum {string}
- * @property {string} CREATE Window with instructions is open, map interaction for setting viewshed is active
- * @property {string} VIEW Viewshed is visible in map, window is closed
- * @property {string} EDIT Viewshed is visible in map, window is open
- * @property {string} MOVE Viewshed is visible in map, window is open, move interaction is active
- */
-export const ViewshedPluginModes = {
-  CREATE: 'create',
-  VIEW: 'view',
-  EDIT: 'edit',
-  MOVE: 'move',
-  MULTI_SELECT: 'multiSelect',
-};
+export enum HeightModes {
+  ABSOLUTE = 'absolute',
+  RELATIVE = 'relative',
+}
+
+export enum ViewshedPluginModes {
+  /** Window with instructions is open, map interaction for setting viewshed is active */
+  CREATE = 'create',
+  /** Viewshed is visible in map, window is closed */
+  VIEW = 'view',
+  /** Viewshed is visible in map, window is open */
+  EDIT = 'edit',
+  /** Viewshed is visible in map, window is open, move interaction is active */
+  MOVE = 'move',
+  MULTI_SELECT = 'multiSelect',
+}
 
 /** The default height offset of a viewshed. */
 export const defaultHeightOffset = 1.8;
 
 /**
  * Creates layer with feature at a specified position.
- * @param {number[]} position Position for feature.
- * @returns {{layer: import("@vcmap/core").VectorLayer, feature: import("ol").Feature, destroy: function():void}} A layer and the added feature at the passed position.
+ * @param Position for feature.
+ * @returns A layer and the added feature at the passed position.
  */
-function createLayerWithFeature(position) {
+function createLayerWithFeature(position: Coordinate): {
+  layer: VectorLayer;
+  feature: Feature;
+  destroy: () => void;
+} {
   const layer = new VectorLayer({
     projection: wgs84Projection.toJSON(),
     zIndex: maxZIndex - 1,
   });
   markVolatile(layer);
-  layer.activate();
+  layer.activate().catch((e: unknown) => {
+    getLogger(name).error('Failed to activate layer', String(e));
+  });
 
   const feature = new Feature(new Point(position));
   // hide feature
@@ -89,7 +114,7 @@ function createLayerWithFeature(position) {
   return {
     layer,
     feature,
-    destroy() {
+    destroy(): void {
       feature.dispose();
       layer.destroy();
     },
@@ -101,10 +126,13 @@ function createLayerWithFeature(position) {
  * In case of heightMode ABSOLUTE the eventType is CLICKMOVE, and therefore sets the viewshed on top of terrain AND buildings.
  * In case of heightMode RELATIVE the eventType is NONE which means viewshed is only set on top of terrain.
  * Run featureInteraction.setActive() to reset eventType, pickPosition and pullPickedPosition.
- * @param {import("@vcmap/core").FeatureAtPixelInteraction} featureInteraction The featureInteraction of the maps eventHandler
- * @param {HeightModes} heightMode The current height mode of the viewshed plugin
+ * @param featureInteraction The featureInteraction of the maps eventHandler
+ * @param heightMode The current height mode of the viewshed plugin
  */
-function updateFeatureInteraction(featureInteraction, heightMode) {
+function updateFeatureInteraction(
+  featureInteraction: FeatureAtPixelInteraction,
+  heightMode: HeightModes,
+): void {
   const eventType =
     heightMode === HeightModes.ABSOLUTE ? EventType.CLICKMOVE : EventType.NONE;
   featureInteraction.setActive(eventType);
@@ -112,33 +140,27 @@ function updateFeatureInteraction(featureInteraction, heightMode) {
   featureInteraction.pullPickedPosition = 1.8;
 }
 
-/**
- *
- * @param {import("@vcmap/ui").VcsUiApp} app The VcsUiApp instance
- * @param {import("./index.js").ViewshedPluginOptions} config
- * @param {import("./viewshedCategory.js").ViewshedCategoryHelper} categoryHelper
- * @returns {ViewshedManager} The viewshed manager, which is responsible for managing the creation and editing of viewsheds.
- */
-export default function createViewshedManager(app, config, categoryHelper) {
-  /** @type {import("vue").ShallowRef<import("./viewshed.js").default | null>} */
-  const currentViewshed = shallowRef(null);
-  /** @type {import("vue").Ref<boolean | null>} */
-  const currentIsPersisted = ref(null);
-  /** @type {import("vue").Ref<ViewshedPluginModes | null>} */
-  const mode = ref(null);
+export default function createViewshedManager(
+  app: VcsUiApp,
+  config: ViewshedPluginOptions,
+  categoryHelper: ViewshedCategoryHelper,
+): ViewshedManager {
+  const currentViewshed = shallowRef<Viewshed | null>(null);
+  const currentIsPersisted = ref<boolean | null>(null);
+  const mode = ref<ViewshedPluginModes | null>(null);
   const heightMode = ref(HeightModes.ABSOLUTE);
-  let removeInteraction = () => {};
-  /** @type {import("vue").Ref<import("@vcmap/core").EditFeaturesSession | import("@vcmap/core").EditGeometrySession | null>} */
-  const currentEditSession = shallowRef(null);
+  const currentEditSession = shallowRef<
+    EditFeaturesSession | EditGeometrySession | null
+  >(null);
+  let removeInteraction = (): void => {};
   /**
    * The feature that is created for feature/geometry editing in {@link moveCurrentViewshed}. Needed to match the EditorManager API from the UI.
-   * @type {import("vue").ShallowRef<import("ol").Feature[]>}
    */
-  const currentFeatures = shallowRef([]);
+  const currentFeatures = shallowRef<Feature[]>([]);
 
-  let shadowMapChangedListener = () => {};
+  let shadowMapChangedListener = (): void => {};
 
-  function deactivateCurrentViewshed() {
+  function deactivateCurrentViewshed(): void {
     if (currentIsPersisted.value && currentViewshed.value) {
       currentViewshed.value.deactivate();
       categoryHelper.setVisibility(currentViewshed.value.name, false);
@@ -149,9 +171,9 @@ export default function createViewshedManager(app, config, categoryHelper) {
 
   /**
    * Stops the viewshed operation.
-   * @param {boolean} [clear=true] - Indicates whether to clear the selection.
+   * Indicates whether to clear the selection.
    */
-  function stop(clear = true) {
+  function stop(clear = true): void {
     shadowMapChangedListener();
     removeInteraction();
     deactivateCurrentViewshed();
@@ -165,9 +187,8 @@ export default function createViewshedManager(app, config, categoryHelper) {
 
   /**
    * activates a viewshed, and adds a Listener to the shadowMapChangedEvent to deactivate the viewshed plugin.
-   * @param {Viewshed} viewshed
    */
-  function activateViewshed(viewshed) {
+  function activateViewshed(viewshed: Viewshed): void {
     shadowMapChangedListener();
     // deactivate existing Viewsheds
     deactivateCurrentViewshed();
@@ -183,7 +204,7 @@ export default function createViewshedManager(app, config, categoryHelper) {
     }
   }
 
-  async function createViewshed(viewshedType) {
+  async function createViewshed(viewshedType: ViewshedTypes): Promise<void> {
     stop();
     await nextTick(); // so the viewshedWindow is closed with mode === null and not CREATE
 
@@ -202,7 +223,7 @@ export default function createViewshedManager(app, config, categoryHelper) {
     });
     activateViewshed(viewshed);
     // setup viewshed create interaction
-    const interaction = new ViewshedInteraction(currentViewshed.value);
+    const interaction = new ViewshedInteraction(currentViewshed.value!);
 
     interaction.finished.addEventListener(() => {
       removeInteraction();
@@ -226,18 +247,18 @@ export default function createViewshedManager(app, config, categoryHelper) {
       updateFeatureInteraction(featureInteraction, HeightModes.ABSOLUTE); // always set second click (lookAt) absolute
     });
 
-    removeInteraction = () => {
+    removeInteraction = (): void => {
       removeExclusiveInteraction();
       interaction.destroy();
       featureInteraction.setActive(); // resets featureInteractions eventType, pickPosition and pullPickedPosition
 
-      removeInteraction = () => {};
+      removeInteraction = (): void => {};
     };
 
     mode.value = ViewshedPluginModes.CREATE;
   }
 
-  function moveCurrentViewshed(activate) {
+  function moveCurrentViewshed(activate: boolean): void {
     if (currentViewshed.value && activate) {
       removeInteraction();
 
@@ -265,9 +286,7 @@ export default function createViewshedManager(app, config, categoryHelper) {
       const geometryListenerKey = feature.getGeometry()?.on('change', () => {
         if (currentViewshed.value) {
           currentViewshed.value.position = Projection.mercatorToWgs84(
-            /** @type {import("ol/geom").Point} */ (
-              feature.getGeometry()
-            ).getCoordinates(),
+            (feature as Feature<Point>).getGeometry()!.getCoordinates(),
           );
         } else {
           stop();
@@ -276,8 +295,8 @@ export default function createViewshedManager(app, config, categoryHelper) {
 
       mode.value = ViewshedPluginModes.MOVE;
 
-      removeInteraction = () => {
-        removeInteraction = () => {}; // needs to be before currentEditSession.value.stop(), otherwise recursion
+      removeInteraction = (): void => {
+        removeInteraction = (): void => {}; // needs to be before currentEditSession.value.stop(), otherwise recursion
 
         if (geometryListenerKey) {
           unByKey(geometryListenerKey);
@@ -296,10 +315,11 @@ export default function createViewshedManager(app, config, categoryHelper) {
 
   /**
    * Changes the mode and the current viewshed. Only works with viewshedMode EDIT and VIEW.
-   * @param {ViewshedPluginModes} viewshedMode
-   * @param {import("./viewshed.js").default} viewshed
    */
-  function changeMode(viewshedMode, viewshed) {
+  function changeMode(
+    viewshedMode: ViewshedPluginModes,
+    viewshed: Viewshed,
+  ): void {
     removeInteraction();
     if (currentViewshed.value !== viewshed) {
       activateViewshed(viewshed);
@@ -331,7 +351,7 @@ export default function createViewshedManager(app, config, categoryHelper) {
         viewshedWindow.state.headerTitle = title;
       }
     }),
-    categoryHelper.visibilityChanged.addEventListener((item) => {
+    categoryHelper.visibilityChanged.addEventListener(({ item }) => {
       const isCurrentlyVisible = currentViewshed.value?.name === item.name;
       if (isCurrentlyVisible) {
         stop();
@@ -343,7 +363,7 @@ export default function createViewshedManager(app, config, categoryHelper) {
     }),
   ];
 
-  function changeHeightMode(newHeightMode) {
+  function changeHeightMode(newHeightMode: HeightModes): void {
     if (newHeightMode === heightMode.value || !currentViewshed.value) {
       return;
     }
@@ -365,7 +385,7 @@ export default function createViewshedManager(app, config, categoryHelper) {
       const { position: currentPosition, heightOffset: currentHeightOffset } =
         currentViewshed.value;
       if (newHeightMode === HeightModes.RELATIVE) {
-        /** @type {import("@vcmap/core").CesiumMap} */ (app.maps.activeMap)
+        (app.maps.activeMap as CesiumMap)
           .getHeightFromTerrain([Projection.wgs84ToMercator(currentPosition)])
           .then((value) => {
             const newPosition = Projection.mercatorToWgs84(value[0]);
@@ -375,6 +395,12 @@ export default function createViewshedManager(app, config, categoryHelper) {
                 currentPosition[2] - newPosition[2];
               currentViewshed.value.position = newPosition;
             }
+          })
+          .catch((e: unknown) => {
+            getLogger(name).error(
+              'Failed to get height from terrain',
+              String(e),
+            );
           });
       } else {
         currentViewshed.value.position = [
@@ -393,18 +419,19 @@ export default function createViewshedManager(app, config, categoryHelper) {
     currentEditSession,
     currentFeatures,
     createViewshed,
-    viewViewshed(viewshed) {
+    viewViewshed(viewshed): void {
       changeMode(ViewshedPluginModes.VIEW, viewshed);
     },
-    editViewshed(viewshed) {
+    editViewshed(viewshed): void {
       changeMode(ViewshedPluginModes.EDIT, viewshed);
       if (currentIsPersisted.value) {
         // makes sure the editor window is open, if it is not triggered by a new selection but e.g. the tristate button
         categoryHelper.setSelection(viewshed.name);
-        categoryHelper.collectionComponent.openEditorWindow(viewshed);
+        // FIXME does not exist
+        // categoryHelper.collectionComponent.openEditorWindow(viewshed);
       }
     },
-    persistCurrent() {
+    persistCurrent(): void {
       if (currentViewshed.value) {
         categoryHelper.add(currentViewshed.value);
         currentIsPersisted.value = true;
@@ -413,7 +440,7 @@ export default function createViewshedManager(app, config, categoryHelper) {
       }
     },
     moveCurrentViewshed,
-    setupMultiSelect() {
+    setupMultiSelect(): void {
       removeInteraction();
       mode.value = ViewshedPluginModes.MULTI_SELECT;
       deactivateCurrentViewshed();
@@ -422,7 +449,7 @@ export default function createViewshedManager(app, config, categoryHelper) {
     mode,
     heightMode,
     changeHeightMode,
-    async placeCurrentFeaturesOnTerrain() {
+    async placeCurrentFeaturesOnTerrain(): Promise<void> {
       if (
         currentViewshed.value &&
         currentEditSession.value?.type === SessionType.EDIT_FEATURES &&
@@ -438,7 +465,7 @@ export default function createViewshedManager(app, config, categoryHelper) {
       }
     },
     stop,
-    destroy() {
+    destroy(): void {
       stop();
       categoryListener.forEach((l) => l());
     },

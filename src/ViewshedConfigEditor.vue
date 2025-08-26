@@ -42,37 +42,30 @@
   </AbstractConfigEditor>
 </template>
 
-<script>
-  import { ref } from 'vue';
+<script lang="ts">
+  import { defineComponent, inject, PropType, ref, toRaw } from 'vue';
   import { VCol, VColorPicker, VContainer, VRow } from 'vuetify/components';
   import {
     AbstractConfigEditor,
     VcsFormSection,
     VcsLabel,
     VcsSelect,
+    VcsUiApp,
   } from '@vcmap/ui';
-  import Viewshed, { ViewshedTypes } from './viewshed.js';
+  import { name } from '../package.json';
+  import { ViewshedTypes } from './viewshed.js';
+  import { ViewshedPlugin } from './index.js';
 
-  /**
-   * @typedef {Object} ViewshedConfig
-   * @property {string} visibleColor The color of the viewsheds visible parts.
-   * @property {string} shadowColor The color of the viewsheds hidden parts.
-   * @property {Array<ViewshedTypes>} tools The tools that are available in the toolbox.
-   */
+  export type ViewshedConfig = {
+    /** The color of the viewsheds visible parts. */
+    visibleColor: string;
+    /** The color of the viewsheds hidden parts. */
+    shadowColor: string;
+    /** The tools that are available in the toolbox. */
+    tools: ViewshedTypes[];
+  };
 
-  /**
-   * Returns the default viewshed options.
-   * @returns {ViewshedConfig}
-   */
-  export function getDefaultOptions() {
-    return {
-      visibleColor: Viewshed.getDefaultOptions().visibleColor,
-      shadowColor: Viewshed.getDefaultOptions().shadowColor,
-      tools: [...Object.values(ViewshedTypes)],
-    };
-  }
-
-  export default {
+  export default defineComponent({
     name: 'ViewshedConfigEditor',
     components: {
       AbstractConfigEditor,
@@ -86,22 +79,26 @@
     },
     props: {
       getConfig: {
-        type: Function,
+        type: Function as PropType<() => ViewshedConfig>,
         required: true,
       },
       setConfig: {
-        type: Function,
+        type: Function as PropType<(config: ViewshedConfig) => void>,
         required: true,
       },
     },
     setup(props) {
-      /** @type {import("vue").Ref<import("./index.js").ViewshedPluginOptions>} */
-      const config = props.getConfig();
-      /** @type {import("vue").Ref<import("./index.js").ViewshedPluginOptions>} */
-      const localConfig = ref({ ...getDefaultOptions(), ...config });
+      const app = inject<VcsUiApp>('vcsUiApp')!;
+      const { getDefaultOptions } = app.plugins.getByKey(
+        name,
+      ) as ViewshedPlugin;
+      const localConfig = ref<ViewshedConfig>({
+        ...getDefaultOptions?.(),
+        ...props.getConfig(),
+      });
 
-      function apply() {
-        props.setConfig(localConfig.value);
+      function apply(): void {
+        props.setConfig(structuredClone(toRaw(localConfig.value)));
       }
 
       return {
@@ -114,5 +111,5 @@
         })),
       };
     },
-  };
+  });
 </script>

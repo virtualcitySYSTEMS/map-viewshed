@@ -1,34 +1,40 @@
 import {
   AbstractInteraction,
   EventType,
+  InteractionEvent,
   Projection,
   VcsEvent,
 } from '@vcmap/core';
+import Viewshed from './viewshed.js';
 
 class ViewshedInteraction extends AbstractInteraction {
-  /**
-   *
-   * @param {import("./viewshed").default} viewshed
-   */
-  constructor(viewshed) {
+  static get className(): string {
+    return 'ViewshedInteraction';
+  }
+
+  private _viewshed: Viewshed;
+
+  private _positioned = new VcsEvent<null>();
+
+  private _finished = new VcsEvent<null>();
+
+  private _position = false;
+
+  constructor(viewshed: Viewshed) {
     super(EventType.CLICKMOVE);
     this._viewshed = viewshed;
-    this._positioned = new VcsEvent();
-    this._finished = new VcsEvent();
-    this._position = false;
-
     this.setActive();
   }
 
-  get finished() {
+  get finished(): VcsEvent<null> {
     return this._finished;
   }
 
-  get positioned() {
+  get positioned(): VcsEvent<null> {
     return this._positioned;
   }
 
-  async pipe(event) {
+  async pipe(event: InteractionEvent): Promise<InteractionEvent> {
     if (event.position) {
       if (!this._position) {
         this._viewshed.position = Projection.mercatorToWgs84(event.position);
@@ -44,10 +50,10 @@ class ViewshedInteraction extends AbstractInteraction {
         }
       }
     }
-    return event;
+    return Promise.resolve(event);
   }
 
-  destroy() {
+  destroy(): void {
     super.destroy();
     this._finished.destroy();
     this._positioned.destroy();

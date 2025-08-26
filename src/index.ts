@@ -1,52 +1,68 @@
-import { CesiumMap, moduleIdSymbol } from '@vcmap/core';
-import Viewshed, { ViewshedTypes } from './viewshed.js';
+import { CesiumMap, moduleIdSymbol, VcsMap } from '@vcmap/core';
+import { PluginConfigEditor, VcsPlugin, VcsUiApp } from '@vcmap/ui';
+import Viewshed, {
+  ColorOptions,
+  ViewshedOptions,
+  ViewshedTypes,
+} from './viewshed.js';
 import createViewshedManager, {
   ViewshedPluginModes,
+  ViewshedManager,
 } from './viewshedManager.js';
 import { setupViewshedWindow } from './util/windowHelper.js';
 import addViewshedToolButtons from './util/toolboxHelper.js';
 import { name, version, mapVersion } from '../package.json';
 import ViewshedCategory, { createCategory } from './viewshedCategory.js';
 import ViewshedConfigEditor, {
-  getDefaultOptions,
+  ViewshedConfig,
 } from './ViewshedConfigEditor.vue';
 
-/**
- * @typedef {Object} ViewshedPluginState
- * @property {import("./viewshedManager.js").ViewshedPluginModes | null} mode Which mode the plugin is currently in.
- * @property {import("./viewshed.js").ViewshedOptions | null} currentViewshed The currents viewshed options.
- */
+type ViewshedPluginState = {
+  /** Which mode the plugin is currently in. */
+  m?: ViewshedPluginModes | null;
+  /** The currents viewshed options. */
+  cv?: ViewshedOptions | null;
+};
 
-/**
- * @typedef {import("./viewshed.js").ColorOptions & {tools?: Array<ViewshedTypes>}} ViewshedPluginOptions
- */
+export type ViewshedPluginOptions = ColorOptions & {
+  tools?: ViewshedTypes[];
+};
 
-/**
- * Implementation of VcsPlugin interface. This function should not throw! Put exceptions in initialize instead.
- * @param {ViewshedPluginOptions} config - the configuration of this plugin instance, passed in from the app.
- * @returns {import("@vcmap/ui/src/vcsUiApp").VcsPlugin<T, ViewshedPluginState>}
- */
-export default function plugin(config) {
-  let viewshedManager;
-  let app;
-  let destroy = () => {};
+export function getDefaultOptions(): ViewshedConfig {
+  return {
+    visibleColor: Viewshed.getDefaultOptions().colorOptions.visibleColor,
+    shadowColor: Viewshed.getDefaultOptions().colorOptions.shadowColor,
+    tools: [...Object.values(ViewshedTypes)],
+  };
+}
+
+export type ViewshedPlugin = VcsPlugin<
+  ViewshedPluginOptions,
+  ViewshedPluginState
+>;
+
+export default function plugin(options: ViewshedPluginOptions): ViewshedPlugin {
+  let app: VcsUiApp;
+  let viewshedManager: ViewshedManager;
+  let destroy = (): void => {};
+
+  const defaultOptions = getDefaultOptions();
+  const config = { ...defaultOptions, ...options };
 
   return {
-    get name() {
+    get name(): string {
       return name;
     },
-    get version() {
+    get version(): string {
       return version;
     },
-    get mapVersion() {
+    get mapVersion(): string {
       return mapVersion;
     },
-    /**
-     * @param {import("@vcmap/ui").VcsUiApp} vcsUiApp
-     * @param {ViewshedPluginState=} state
-     * @returns {Promise<void>}
-     */
-    async initialize(vcsUiApp, state) {
+    async initialize(
+      vcsUiApp: VcsUiApp,
+      state?: ViewshedPluginState,
+    ): Promise<void> {
       app = vcsUiApp;
       vcsUiApp.categoryClassRegistry.registerClass(
         this[moduleIdSymbol],
@@ -63,7 +79,7 @@ export default function plugin(config) {
         vcsUiApp,
         viewshedManager,
         name,
-        config.tools || getDefaultOptions().tools,
+        config.tools || defaultOptions.tools,
       );
       const { destroy: destroyViewshedWindow } = setupViewshedWindow(
         viewshedManager,
@@ -72,7 +88,7 @@ export default function plugin(config) {
       );
 
       const { activeMap } = vcsUiApp.maps;
-      function activateCachedViewshed(map) {
+      function activateCachedViewshed(map: VcsMap): void {
         if (state?.m && state.cv && map instanceof CesiumMap) {
           const activeViewshed = new Viewshed(state.cv);
           if (state.m === ViewshedPluginModes.VIEW) {
@@ -97,7 +113,7 @@ export default function plugin(config) {
         },
       );
 
-      destroy = () => {
+      destroy = (): void => {
         mapActivatedListener();
         destroyButtons();
         destroyViewshedWindow();
@@ -105,52 +121,36 @@ export default function plugin(config) {
         viewshedManager.destroy();
       };
     },
-    /**
-     * should return all default values of the configuration
-     * @returns {ViewshedPluginOptions}
-     */
     getDefaultOptions,
-    /**
-     * should return the plugin's serialization excluding all default values
-     * @returns {ViewshedPluginOptions}
-     */
-    toJSON() {
-      const serial = {};
-      if (
-        config.tools &&
-        getDefaultOptions().tools.length !== config.tools.length
-      ) {
+    toJSON(): ViewshedPluginOptions {
+      const serial: ViewshedPluginOptions = {};
+      if (config.tools && defaultOptions.tools.length !== config.tools.length) {
         serial.tools = [...config.tools];
       }
       if (
         config.shadowColor &&
-        config.shadowColor !== Viewshed.getDefaultOptions().shadowColor
+        config.shadowColor !== defaultOptions.shadowColor
       ) {
         serial.shadowColor = config.shadowColor;
       }
       if (
         config.visibleColor &&
-        config.visibleColor !== Viewshed.getDefaultOptions().visibleColor
+        config.visibleColor !== defaultOptions.visibleColor
       ) {
         serial.visibleColor = config.visibleColor;
       }
       return serial;
     },
-    /**
-     * should return the plugins state
-     * @param {boolean} forUrl
-     * @returns {ViewshedPluginState}
-     */
-    getState(forUrl) {
-      const state = {};
+    getState(forUrl?: boolean): ViewshedPluginState {
+      const state: ViewshedPluginState = {};
       const mode = viewshedManager.mode.value;
       const currentViewshed = viewshedManager.currentViewshed.value?.toJSON();
 
       if (mode !== null && mode !== 'create' && currentViewshed) {
         state.m = mode;
         state.cv = currentViewshed;
-        if (forUrl && state.cv.properties?.title) {
-          if (Object.keys(state.properties).length === 1) {
+        if (forUrl && state.cv?.properties?.title) {
+          if (Object.keys(state.cv?.properties).length === 1) {
             delete state.cv.properties;
           } else {
             delete state.cv.properties.title;
@@ -160,11 +160,7 @@ export default function plugin(config) {
 
       return state;
     },
-    /**
-     * components for configuring the plugin and/ or custom items defined by the plugin
-     * @returns {Array<import("@vcmap/ui").PluginConfigEditor>}
-     */
-    getConfigEditors() {
+    getConfigEditors(): PluginConfigEditor<object>[] {
       return [
         {
           component: ViewshedConfigEditor,

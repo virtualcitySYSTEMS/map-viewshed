@@ -1,31 +1,42 @@
 import { CesiumMap } from '@vcmap/core';
-import { ToolboxType } from '@vcmap/ui';
+import {
+  SelectToolboxComponentOptions,
+  SingleToolboxComponentOptions,
+  ToolboxType,
+  VcsUiApp,
+} from '@vcmap/ui';
 import { check, ofEnum } from '@vcsuite/check';
 import { reactive, watch } from 'vue';
 import { ViewshedTypes } from '../viewshed.js';
 import { ViewshedIcons } from './windowHelper.js';
-import { ViewshedPluginModes } from '../viewshedManager.js';
+import { ViewshedManager, ViewshedPluginModes } from '../viewshedManager.js';
 
-/**
- * @typedef {Object} ViewshedToolbox
- * @property {import("@vcmap/ui/src/manager/toolbox/toolboxManager").SelectToolboxComponentOptions} toolbox
- * @property {function():void} destroy
- */
+type ViewshedToolbox = {
+  toolbox: SingleToolboxComponentOptions | SelectToolboxComponentOptions;
+  destroy: () => void;
+};
 
 /**
  *
- * @param {import("@vcmap/ui").VcsUiApp} app The VcsUiApp instance
- * @param {import("../viewshedManager.js").ViewshedManager} manager The viewshed manager.
- * @param {string} name Name of toolbox.
- * @param {Array<string>} tools The tools to be available in the toolbox
- * @returns {ViewshedToolbox} A select toolbox with buttons to create 360 and cone viewshed.
+ * @param app The VcsUiApp instance
+ * @param manager The viewshed manager.
+ * @param name Name of toolbox.
+ * @param tools The tools to be available in the toolbox
+ * @returns A select toolbox with buttons to create 360 and cone viewshed.
  */
-function createViewshedToolbox(app, manager, name, tools) {
+function createViewshedToolbox(
+  app: VcsUiApp,
+  manager: ViewshedManager,
+  name: string,
+  tools: string[],
+): ViewshedToolbox {
   /**
-   * @param {string} tool The tool to create.
-   * @returns {{name:ViewshedTypes, icon:string, title:string, } | undefined} A tool object.
+   * @param tool The tool to create.
+   * @returns A tool object.
    */
-  function parseTool(tool) {
+  function parseTool(
+    tool: string,
+  ): { name: ViewshedTypes; icon: string; title: string } | undefined {
     if (tool === ViewshedTypes.CONE) {
       return {
         name: ViewshedTypes.CONE,
@@ -43,10 +54,10 @@ function createViewshedToolbox(app, manager, name, tools) {
     }
   }
 
-  let toolbox;
-  let currentViewshedWatcher;
+  let toolbox: SingleToolboxComponentOptions | SelectToolboxComponentOptions;
+  let currentViewshedWatcher: () => void;
   if (tools.length === 1) {
-    const tool = parseTool(tools[0]);
+    const tool = parseTool(tools[0])!;
     toolbox = {
       type: ToolboxType.SINGLE,
       action: reactive({
@@ -54,15 +65,15 @@ function createViewshedToolbox(app, manager, name, tools) {
         active: false,
         background: false,
         disabled: !(app.maps.activeMap instanceof CesiumMap),
-        callback() {
+        async callback() {
           if (this.active) {
             if (this.background && manager.currentViewshed.value) {
               manager.editViewshed(manager.currentViewshed.value);
             } else {
               manager.stop();
             }
-          } else {
-            manager.createViewshed(tool.name);
+          } else if (tool) {
+            await manager.createViewshed(tool.name);
           }
         },
       }),
@@ -76,7 +87,7 @@ function createViewshedToolbox(app, manager, name, tools) {
         active: false,
         background: false,
         disabled: !(app.maps.activeMap instanceof CesiumMap),
-        callback() {
+        async callback() {
           if (this.active) {
             if (this.background && manager.currentViewshed.value) {
               manager.editViewshed(manager.currentViewshed.value);
@@ -85,15 +96,15 @@ function createViewshedToolbox(app, manager, name, tools) {
             }
           } else {
             const toolName = this.tools[this.currentIndex].name;
-            manager.createViewshed(toolName);
+            await manager.createViewshed(toolName);
           }
         },
-        selected(newIndex) {
+        async selected(newIndex: number) {
           if (newIndex !== this.currentIndex) {
             this.currentIndex = newIndex;
           }
           const toolName = this.tools[this.currentIndex].name;
-          manager.createViewshed(toolName);
+          await manager.createViewshed(toolName);
         },
         tools: tools.flatMap(parseTool),
       }),
@@ -103,7 +114,9 @@ function createViewshedToolbox(app, manager, name, tools) {
       manager.currentViewshed,
       (currentViewshed) => {
         if (currentViewshed) {
-          toolbox.action.currentIndex = toolbox.action.tools.findIndex(
+          (toolbox as SelectToolboxComponentOptions).action.currentIndex = (
+            toolbox as SelectToolboxComponentOptions
+          ).action.tools.findIndex(
             (tool) => tool.name === currentViewshed.type,
           );
         }
@@ -133,24 +146,29 @@ function createViewshedToolbox(app, manager, name, tools) {
   });
 
   return {
-    destroy() {
+    toolbox,
+    destroy(): void {
       viewshedModeWatcher();
       currentViewshedWatcher?.();
       mapChangedListener();
     },
-    toolbox,
   };
 }
 
 /**
  *
- * @param {import("@vcmap/ui").VcsUiApp} app The VcsUiApp instance
- * @param {import("../viewshedManager.js").ViewshedManager} manager The viewshed manager.
- * @param {string} name Name of toolbox action and owner of toolbox component
- * @param {Array<string>} tools The tools to be available in the toolbox
- * @returns {function():void} Function to remove toolbox component.
+ * @param app The VcsUiApp instance
+ * @param manager The viewshed manager.
+ * @param name Name of toolbox action and owner of toolbox component
+ * @param tools The tools to be available in the toolbox
+ * @returns Function to remove toolbox component.
  */
-export default function addToolButtons(app, manager, name, tools) {
+export default function addToolButtons(
+  app: VcsUiApp,
+  manager: ViewshedManager,
+  name: string,
+  tools: string[],
+): () => void {
   check(tools, [ofEnum(ViewshedTypes)]);
 
   const { toolbox: createToolbox, destroy: destroyCreateToolbox } =

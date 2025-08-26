@@ -16,7 +16,9 @@
     "lint": "npm run lint:js && npm run lint:prettier",
     "format": "prettier --write --list-different . && npm run lint:js -- --fix",
     "test": "vitest",
-    "coverage": "vitest run --coverage"
+    "coverage": "vitest run --coverage",
+    "type-check": "vue-tsc --noEmit",
+    "ensure-types": "vcmplugin ensure-types"
   },
   "author": "Tobias Krauth <tkrauth@vc.systems>",
   "license": "MIT",
@@ -43,7 +45,7 @@
   ],
   "eslintConfig": {
     "root": true,
-    "extends": "@vcsuite/eslint-config/vue"
+    "extends": "@vcsuite/eslint-config/vueTs"
   },
   "prettier": "@vcsuite/eslint-config/prettier.js",
   "peerDependencies": {
@@ -54,6 +56,9 @@
     "vue": "~3.4.38",
     "vuetify": "^3.7.3"
   },
+  "overrides": {
+    "esbuild": "^0.25.0"
+  },
   "devDependencies": {
     "@vcmap/plugin-cli": "^4.0.1",
     "@vcsuite/eslint-config": "^3.0.8",
@@ -61,11 +66,14 @@
     "jest-canvas-mock": "^2.5.2",
     "jsdom": "^22.1.0",
     "resize-observer-polyfill": "^1.5.1",
-    "vitest": "^2.1.4"
+    "typescript": "^5.9.2",
+    "vitest": "^2.1.4",
+    "vue-tsc": "^2.2.12"
   },
   "dependencies": {
-    "@vcsuite/check": "^2.1.0",
-    "@vcsuite/parsers": "^1.0.3"
+    "@vcsuite/logger": "^1.0.1",
+    "@vcsuite/check": "^3.1.0",
+    "@vcsuite/parsers": "^2.0.1"
   },
   "mapVersion": "^6.0"
 }

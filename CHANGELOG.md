@@ -1,3 +1,7 @@
+# v3.0.6
+
+- change plugin code to TypeScript
+
 # v3.0.4
 
 - fixes bug where setting a single tool in the configuration file would fail

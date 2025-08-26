@@ -43,7 +43,7 @@
           >
             <VcsTextField
               :model-value="value"
-              @update:model-value="(v) => setPosition(v, key, index)"
+              @update:model-value="(v: string) => setPosition(v, key, index)"
               type="number"
               :prefix="key"
               :step="key === 'Z' ? 1 : 0.0001"
@@ -104,9 +104,9 @@
             </v-col>
             <v-col class="d-flex justify-end align-center">
               <span v-if="key === 'distance'">{{
-                `${Math.round(value)} m`
+                `${Math.round(Number(value))} m`
               }}</span>
-              <span v-else>{{ `${Math.round(value)} °` }}</span>
+              <span v-else>{{ `${Math.round(Number(value))} °` }}</span>
             </v-col>
           </v-row>
           <v-row no-gutters>
@@ -115,7 +115,7 @@
                 :id="key"
                 class="pa-0"
                 :model-value="value"
-                @update:model-value="(v) => setParameter(key, v)"
+                @update:model-value="(v: number) => setParameter(key, v)"
                 type="number"
                 step="1"
                 :min="parameterRanges[key][0]"
@@ -155,9 +155,10 @@
   </div>
 </template>
 
-<script>
+<script lang="ts">
   import {
     computed,
+    defineComponent,
     inject,
     onMounted,
     onUnmounted,
@@ -168,7 +169,7 @@
     watchEffect,
   } from 'vue';
   import { VCol, VContainer, VDivider, VRow } from 'vuetify/components';
-  import { TransformationMode, Viewpoint } from '@vcmap/core';
+  import { CesiumMap, TransformationMode, Viewpoint } from '@vcmap/core';
   import {
     VcsFormButton,
     VcsFormSection,
@@ -178,8 +179,14 @@
     VcsTextField,
     VcsFeatureTransforms,
     VcsHelp,
+    VcsUiApp,
+    VcsAction,
   } from '@vcmap/ui';
-  import { ViewshedPluginModes, HeightModes } from './viewshedManager.js';
+  import {
+    ViewshedPluginModes,
+    HeightModes,
+    ViewshedManager,
+  } from './viewshedManager.js';
   import Viewshed, { ViewshedTypes } from './viewshed.js';
 
   const parameterRanges = {
@@ -189,7 +196,13 @@
     pitch: [-90, 90],
   };
 
-  export default {
+  type ViewshedParameters = Pick<
+    Viewshed,
+    'heading' | 'showPrimitive' | 'distance' | 'fov' | 'pitch'
+  >;
+
+  export default defineComponent({
+    name: 'ViewshedWindow',
     components: {
       VcsTextField,
       VContainer,
@@ -204,7 +217,6 @@
       VcsFeatureTransforms,
       VcsHelp,
     },
-    name: 'ViewshedWindow',
     props: {
       getViewshed: {
         type: Function,
@@ -218,13 +230,8 @@
       },
     },
     setup(props) {
-      const viewshedManager =
-        /** @type {import("./viewshedManager.js").ViewshedManager} */ (
-          inject('manager')
-        );
-      const app = /** @type {import("@vcmap/ui").VcsUiApp} */ (
-        inject('vcsApp')
-      );
+      const viewshedManager = inject<ViewshedManager>('manager')!;
+      const app = inject('vcsApp') as VcsUiApp;
       const {
         currentViewshed,
         mode: viewshedMode,
@@ -235,40 +242,36 @@
       const movementDisabled = ref(
         app.maps.activeMap?.movementApiCallsDisabled ?? false,
       );
-      let movementDisabledListener = () => {};
+      let movementDisabledListener: (() => void) | undefined;
 
       const selection = computed(() => props.selection);
 
-      let removePositionChangedListener = () => {};
+      let removePositionChangedListener = (): void => {};
 
       /**
        * Position of the viewshed as coordinates array. Z value is either absolute height (heightMode === HeightModes.ABSOLUTE) or relative height (heightMode === HeightModes.RELATIVE);
-       * @type {{X: number | undefined, Y: number | undefined, Z: number | undefined}}
        */
-      const position = reactive({
+      const position = reactive<{ X?: number; Y?: number; Z?: number }>({
         X: undefined,
         Y: undefined,
         Z: undefined,
       });
       /** Cached view point when jumping to view point of viewshed. This allows to jump back to prev position when clicking 'jump to viewpoint' again, without changing position. */
-      const cachedViewpoint = shallowRef();
+      const cachedViewpoint = shallowRef<Viewpoint | null>();
       /** If currently in `jumpToViewpoint` mode: sets cached viewpoint on null, deletes camera changed listener and reactivates viewshed. Otherwise empty function. */
-      let deleteCachedViewpoint = () => {};
+      let deleteCachedViewpoint = (): void => {};
 
-      /**
-       * @type {{showPrimitive: boolean, distance: number | undefined, fov: number | undefined, heading: number | undefined, pitch: number | undefined}}
-       */
-      const parameters = reactive({
+      const parameters = reactive<ViewshedParameters>({
         showPrimitive: false,
-        distance: undefined,
-        fov: undefined,
-        heading: undefined,
-        pitch: undefined,
+        distance: currentViewshed.value?.distance || 0,
+        fov: currentViewshed.value?.fov || 0,
+        heading: currentViewshed.value?.heading || 0,
+        pitch: currentViewshed.value?.pitch || 0,
       });
 
-      const viewshedType = ref();
+      const viewshedType = ref<ViewshedTypes | undefined>();
 
-      function updatePosition() {
+      function updatePosition(): void {
         if (currentViewshed.value) {
           position.X = currentViewshed.value.position[0];
           position.Y = currentViewshed.value.position[1];
@@ -279,7 +282,7 @@
         }
       }
 
-      function updateWindow() {
+      function updateWindow(): void {
         updatePosition();
 
         if (currentViewshed.value) {
@@ -320,19 +323,17 @@
       /**
        * Deactivates viewshed and sets up a camera changes listener, which is destroyed when `deleteCachedViewpoint()` is called.
        */
-      async function setUpCameraChangedListener() {
+      function setUpCameraChangedListener(): void {
         currentViewshed.value?.deactivate();
-        const camera = /** @type {import("@vcmap/core").CesiumMap} */ (
-          app.maps.activeMap
-        ).getScene()?.camera;
-        const listener = camera?.changed.addEventListener(() => {
-          deleteCachedViewpoint();
-        });
-        deleteCachedViewpoint = () => {
+        const camera = (app.maps.activeMap as CesiumMap).getScene()?.camera;
+        const listener = camera?.changed.addEventListener(
+          deleteCachedViewpoint,
+        );
+        deleteCachedViewpoint = (): void => {
           listener?.();
           cachedViewpoint.value = null;
-          currentViewshed.value?.activate(app.maps.activeMap);
-          deleteCachedViewpoint = () => {};
+          currentViewshed.value?.activate(app.maps.activeMap as CesiumMap);
+          deleteCachedViewpoint = (): void => {};
         };
       }
 
@@ -353,7 +354,7 @@
       onUnmounted(() => {
         removePositionChangedListener();
         deleteCachedViewpoint();
-        movementDisabledListener();
+        movementDisabledListener?.();
 
         if (!currentIsPersisted.value) {
           // in case of temp editor
@@ -385,16 +386,20 @@
 
       updateWindow();
 
-      function setParameter(key, value) {
+      function setParameter<K extends keyof ViewshedParameters>(
+        key: K,
+        value: ViewshedParameters[K],
+      ): void {
         deleteCachedViewpoint();
         if (currentViewshed.value) {
           parameters[key] = value;
+          // @ts-expect-error not typed
           currentViewshed.value[key] = value;
         }
       }
 
       const headerActions = computed(() => {
-        const actions = [];
+        const actions: VcsAction[] = [];
         if (viewshedType.value === ViewshedTypes.CONE) {
           actions.push({
             name: 'jumpToViewpoint',
@@ -425,7 +430,7 @@
                 );
                 setUpCameraChangedListener();
               } else if (cachedViewpoint.value) {
-                app.maps.activeMap?.gotoViewpoint(cachedViewpoint.value);
+                await app.maps.activeMap?.gotoViewpoint(cachedViewpoint.value);
                 deleteCachedViewpoint();
               }
             },
@@ -460,7 +465,7 @@
 
       return {
         position,
-        setPosition(value, key, index) {
+        setPosition(value: string, key: string, index: number): void {
           deleteCachedViewpoint();
           if (!currentViewshed.value) {
             return;
@@ -476,7 +481,7 @@
             newPosition[index] = Number(value);
             currentViewshed.value.position = newPosition;
           }
-          position[key] = Number(value);
+          position[key as keyof typeof position] = Number(value);
         },
         parameters,
         setParameter,
@@ -489,14 +494,15 @@
         HeightModes,
         heightMode: viewshedManager.heightMode,
         TransformationMode,
-        changeHeightMode: viewshedManager.changeHeightMode,
-        async createNewViewshed() {
-          await viewshedManager.createViewshed(viewshedType.value);
+        changeHeightMode: (v: HeightModes): void =>
+          viewshedManager.changeHeightMode(v),
+        async createNewViewshed(): Promise<void> {
+          await viewshedManager.createViewshed(viewshedType.value!);
         },
-        addToMyWorkspace: () => viewshedManager.persistCurrent(),
-        cancel: () => viewshedManager.stop(),
+        addToMyWorkspace: (): void => viewshedManager.persistCurrent(),
+        cancel: (): void => viewshedManager.stop(),
         headerActions,
       };
     },
-  };
+  });
 </script>

@@ -1,40 +1,50 @@
 import { reactive } from 'vue';
 import { Category, CesiumMap, VcsEvent } from '@vcmap/core';
 import {
+  CollectionComponentClass,
+  CollectionComponentListItem,
   createListExportAction,
   createListImportAction,
   createSupportedMapMappingFunction,
   downloadText,
+  MappingFunction,
   NotificationType,
+  VcsUiApp,
 } from '@vcmap/ui';
 import { name } from '../package.json';
-import Viewshed from './viewshed.js';
+import Viewshed, { ViewshedOptions, ViewshedTypes } from './viewshed.js';
 
-/**
- * @typedef {Object} ViewshedCategoryHelper
- * @property {import("@vcmap/core").VcsEvent} renamed
- * @property {import("@vcmap/core").VcsEvent} visibilityChanged Event that is raised when the visibility of a viewshed is changed.
- * @property {function(string | null):void} setSelection Sets a single viewshed item as selected by providing its name.
- * @property {function():void} clearSelection Clears all selected items.
- * @property {function(string, boolean):void} setVisibility Sets the visibility of a viewshed item by providing its name and a boolean value.
- * @property {function(import("./viewshed.js").default):void} add Adds a viewshed to the categories collection. Also assigns new title to the viewshed.
- * @property {function(string):void} remove Removes viewshed from category collection by providing a name.
- * @property {import("@vcmap/ui").CollectionComponent} collectionComponent The collection component of the category.
- * @property {function():void} destroy Destroys category helper
- */
+export type ViewshedCategoryHelper = {
+  renamed: VcsEvent<{ item: Viewshed; title: string }>;
+  /** Event that is raised when the visibility of a viewshed is changed. */
+  visibilityChanged: VcsEvent<{ item: Viewshed; visible: boolean }>;
+  /** Sets a single viewshed item as selected by providing its name. */
+  setSelection(itemName: string | null): void;
+  /** Clears all selected items. */
+  clearSelection(): void;
+  /** Sets the visibility of a viewshed item by providing its name and a boolean value. */
+  setVisibility(itemName: string, visible: boolean): void;
+  /** Adds a viewshed to the categories collection. Also assigns new title to the viewshed. */
+  add(viewshed: import('./viewshed.js').default): void;
+  /** Removes viewshed from category collection by providing a name. */
+  remove(itemName: string): void;
+  /** The collection component of the category. */
+  collectionComponent: CollectionComponentClass<Viewshed>;
+  /** Destroys category helper */
+  destroy(): void;
+};
 
-class ViewshedCategory extends Category {
-  static get className() {
+class ViewshedCategory extends Category<Viewshed> {
+  static get className(): string {
     return 'ViewshedCategory';
   }
 
-  async _deserializeItem(item) {
-    const cesiumMap =
-      /** @type {import("@vcmap/core").CesiumMap | undefined} */ (
-        this._app?.maps.getByType(CesiumMap.className)[0]
-      );
+  async _deserializeItem(item: ViewshedOptions): Promise<Viewshed> {
+    const cesiumMap = this._app?.maps.getByType(CesiumMap.className)[0] as
+      | CesiumMap
+      | undefined;
     if (cesiumMap) {
-      return new Viewshed(item);
+      return Promise.resolve(new Viewshed(item));
     } else {
       throw new Error('No CesiumMap available');
     }
@@ -43,14 +53,11 @@ class ViewshedCategory extends Category {
 
 export default ViewshedCategory;
 
-/**
- *
- * @param {import("./viewshed.js").ViewshedTypes} viewshedType
- * @param {Array<import("./viewshed.js").default>} persistedViewsheds
- * @returns {string} The title for the viewshed.
- */
-export function getTitleForViewshed(viewshedType, persistedViewsheds) {
-  let viewshedTitle;
+export function getTitleForViewshed(
+  viewshedType: ViewshedTypes,
+  persistedViewsheds: Viewshed[],
+): string {
+  let viewshedTitle: string | undefined;
   let count = 0;
 
   const sameTypeViewshedsNames = new Set(
@@ -69,28 +76,24 @@ export function getTitleForViewshed(viewshedType, persistedViewsheds) {
   return viewshedTitle;
 }
 
-/**
- *
- * @param {import("@vcmap/ui").VcsUiApp} app
- * @returns {Promise<ViewshedCategoryHelper>}
- */
-export async function createCategory(app) {
-  const renamed = new VcsEvent();
-  const visibilityChanged = new VcsEvent();
+export async function createCategory(
+  app: VcsUiApp,
+): Promise<ViewshedCategoryHelper> {
+  const renamed = new VcsEvent<{ item: Viewshed; title: string }>();
+  const visibilityChanged = new VcsEvent<{
+    item: Viewshed;
+    visible: boolean;
+  }>();
 
   const { collectionComponent, category } =
-    await app.categoryManager.requestCategory(
+    await app.categoryManager.requestCategory<Viewshed>(
       {
         type: ViewshedCategory.className,
         name: 'Viewsheds',
         title: 'viewshed.viewshedCategory',
       },
       name,
-      {
-        selectable: true,
-        renamable: true,
-        removable: true,
-      },
+      { selectable: true, renamable: true, removable: true },
     );
 
   collectionComponent.addItemMapping({
@@ -101,10 +104,14 @@ export async function createCategory(app) {
     owner: name,
   });
 
-  const itemMappingFunction = (item, c, listItem) => {
-    listItem.title = item.properties.title;
+  const itemMappingFunction: MappingFunction<Viewshed> = (
+    item: Viewshed,
+    _c: CollectionComponentClass<Viewshed>,
+    listItem: CollectionComponentListItem,
+  ): void => {
+    listItem.title = item.properties.title as string;
 
-    listItem.titleChanged = (title) => {
+    listItem.titleChanged = (title): void => {
       item.properties.title = title;
       listItem.title = title;
       renamed.raiseEvent({ item, title });
@@ -115,7 +122,7 @@ export async function createCategory(app) {
         name: 'visibilityAction',
         icon: '$vcsCheckbox',
         callback() {
-          visibilityChanged.raiseEvent(item);
+          visibilityChanged.raiseEvent({ item, visible: !!listItem.visible });
         },
       }),
     );
@@ -148,7 +155,7 @@ export async function createCategory(app) {
           files.map(async (file) => {
             const text = await file.text();
             try {
-              const parsedOptions = JSON.parse(text);
+              const parsedOptions = JSON.parse(text) as ViewshedOptions[];
               return parsedOptions.map((options) => new Viewshed(options));
             } catch (e) {
               app.notifier.add({
@@ -200,18 +207,18 @@ export async function createCategory(app) {
   return {
     renamed,
     visibilityChanged,
-    setSelection(itemName) {
+    setSelection(itemName): void {
       if (itemName) {
         collectionComponent.selection.value =
           collectionComponent.items.value.filter((i) => itemName === i.name);
       }
     },
-    clearSelection() {
+    clearSelection(): void {
       if (collectionComponent.selection.value.length) {
         collectionComponent.selection.value = [];
       }
     },
-    setVisibility(itemName, visible) {
+    setVisibility(itemName, visible): void {
       const listItem = collectionComponent.items.value.find(
         (i) => itemName === i.name,
       );
@@ -226,23 +233,20 @@ export async function createCategory(app) {
         }
       }
     },
-    add(viewshed) {
-      viewshed.properties.title = getTitleForViewshed(
-        viewshed.type,
-        /** @type {import("./viewshed.js").default[]} */ ([
-          ...category.collection,
-        ]),
-      );
+    add(viewshed): void {
+      viewshed.properties.title = getTitleForViewshed(viewshed.type, [
+        ...category.collection,
+      ] as Viewshed[]);
       category.collection.add(viewshed);
     },
-    remove(itemName) {
+    remove(itemName): void {
       const item = category.collection.getByKey(itemName);
       if (item) {
         category.collection.remove(item);
       }
     },
     collectionComponent,
-    destroy() {
+    destroy(): void {
       app.categoryManager.removeOwner(name);
       renamed.destroy();
       visibilityChanged.destroy();

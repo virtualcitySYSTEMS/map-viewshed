@@ -1,41 +1,47 @@
 import { ref, watch } from 'vue';
-import { WindowSlot, makeEditorCollectionComponentClass } from '@vcmap/ui';
+import {
+  CollectionComponentClass,
+  WindowComponentOptions,
+  WindowSlot,
+  makeEditorCollectionComponentClass,
+  VcsUiApp,
+} from '@vcmap/ui';
 import ViewshedWindow from '../ViewshedWindow.vue';
 import { name } from '../../package.json';
-import { ViewshedTypes } from '../viewshed.js';
-import { ViewshedPluginModes } from '../viewshedManager.js';
+import Viewshed, { ViewshedTypes } from '../viewshed.js';
+import { ViewshedManager, ViewshedPluginModes } from '../viewshedManager.js';
 
 export const ViewshedIcons = {
   [ViewshedTypes.CONE]: '$vcsViewshed',
   [ViewshedTypes.THREESIXTY]: '$vcsViewshedCone',
 };
 
-/**
- * @typedef {Object} ViewshedWindow
- * @property {function():void} destroy Destroys watchers and removes window.
- * @property {function():void} toggleWindow Toggles window. Only opens window when manager has current viewshed.
- */
+type ViewshedWindowApi = {
+  /** Destroys watchers and removes window. */
+  destroy: () => void;
+  /** Toggles window. Only opens window when manager has current viewshed. */
+  // toggleWindow: () => void;
+};
 
 /**
  *
- * @param {import("../viewshedManager.js").ViewshedManager} manager The viewshed manager.
- * @param {import("@vcmap/ui").VcsUiApp} app The VcsUiApp instance
- * @param {import("@vcmap/ui").CollectionComponent} collectionComponent The collection component of the category.
- * @returns {ViewshedWindow} Viewshed window api.
+ * @param manager The viewshed manager.
+ * @param app The VcsUiApp instance
+ * @param collectionComponent The collection component of the category.
+ * @returns Viewshed window api.
  */
-export function setupViewshedWindow(manager, app, collectionComponent) {
-  /**
-   * @type {import("vue").Ref<undefined | string | string[]>}
-   */
-  const headerTitle = ref();
+export function setupViewshedWindow(
+  manager: ViewshedManager,
+  app: VcsUiApp,
+  collectionComponent: CollectionComponentClass<Viewshed>,
+): ViewshedWindowApi {
+  const headerTitle = ref<string | string[]>('');
   const headerIcon = ref();
   const windowId = `${collectionComponent.id}-editor`;
 
-  const editor = {
+  const editor: WindowComponentOptions = {
     component: ViewshedWindow,
-    provides: {
-      manager,
-    },
+    provides: { manager },
     state: {
       headerTitle,
       headerIcon,
@@ -54,12 +60,13 @@ export function setupViewshedWindow(manager, app, collectionComponent) {
     }),
   });
 
-  function updateHeader() {
+  function updateHeader(): void {
     if (manager.currentViewshed.value) {
       headerIcon.value = ViewshedIcons[manager.currentViewshed.value.type];
 
       if (manager.currentIsPersisted.value) {
-        headerTitle.value = manager.currentViewshed.value.properties.title;
+        headerTitle.value = manager.currentViewshed.value.properties
+          .title as string;
       } else if (manager.mode.value === ViewshedPluginModes.CREATE) {
         headerTitle.value = `viewshed.create.${manager.currentViewshed.value.type}`;
       } else {
@@ -71,7 +78,7 @@ export function setupViewshedWindow(manager, app, collectionComponent) {
     }
   }
 
-  function updateWindow() {
+  function updateWindow(): void {
     updateHeader();
     if (
       manager.currentViewshed.value &&
@@ -115,7 +122,7 @@ export function setupViewshedWindow(manager, app, collectionComponent) {
   });
 
   return {
-    destroy() {
+    destroy(): void {
       app.windowManager.remove(windowId);
       viewshedListener();
       viewshedModeListener();
