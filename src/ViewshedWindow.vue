@@ -43,7 +43,6 @@
           >
             <VcsTextField
               :model-value="value"
-              @update:model-value="(v: string) => setPosition(v, key, index)"
               type="number"
               :prefix="key"
               :step="key === 'Z' ? 1 : 0.0001"
@@ -54,6 +53,7 @@
                 !(key === 'Z' && heightMode === HeightModes.RELATIVE)
               "
               :hide-spin-buttons="true"
+              @update:model-value="(v: string) => setPosition(v, key, index)"
             />
           </v-col>
         </v-row>
@@ -83,13 +83,13 @@
       </v-row>
     </v-container>
     <v-container
-      class="px-1 pt-0 pb-2"
       v-if="
         viewshedMode === ViewshedPluginModes.EDIT ||
         viewshedMode === ViewshedPluginModes.MOVE
       "
+      class="px-1 pt-0 pb-2"
     >
-      <v-row no-gutters v-for="(value, key) in parameters" :key="key">
+      <v-row v-for="(value, key) in parameters" :key="key" no-gutters>
         <v-col
           v-if="
             key === 'distance' ||
@@ -115,11 +115,11 @@
                 :id="key"
                 class="pa-0"
                 :model-value="value"
-                @update:model-value="(v: number) => setParameter(key, v)"
                 type="number"
                 step="1"
                 :min="parameterRanges[key][0]"
                 :max="parameterRanges[key][1]"
+                @update:model-value="(v: number) => setParameter(key, v)"
               />
             </v-col>
           </v-row>
@@ -135,12 +135,12 @@
       class="d-flex w-full justify-space-between px-2 pt-2 pb-1"
     >
       <VcsFormButton
-        @click="addToMyWorkspace()"
         tooltip="viewshed.addToMyWorkspace"
         icon="$vcsComponentsPlus"
         :disabled="currentIsPersisted || undefined"
+        @click="addToMyWorkspace()"
       />
-      <VcsFormButton @click="createNewViewshed()" variant="filled">
+      <VcsFormButton variant="filled" @click="createNewViewshed()">
         {{ $t('viewshed.new') }}
       </VcsFormButton>
     </div>
@@ -148,7 +148,7 @@
       v-else-if="viewshedMode === ViewshedPluginModes.CREATE"
       class="d-flex w-full justify-end px-2 pt-2 pb-1"
     >
-      <VcsFormButton @click="cancel()" variant="outlined">
+      <VcsFormButton variant="outlined" @click="cancel()">
         {{ $t('viewshed.cancel') }}
       </VcsFormButton>
     </div>
@@ -156,6 +156,7 @@
 </template>
 
 <script lang="ts">
+  import type { PropType, Ref } from 'vue';
   import {
     computed,
     defineComponent,
@@ -169,7 +170,13 @@
     watchEffect,
   } from 'vue';
   import { VCol, VContainer, VDivider, VRow } from 'vuetify/components';
-  import { CesiumMap, TransformationMode, Viewpoint } from '@vcmap/core';
+  import type { CesiumMap } from '@vcmap/core';
+  import { TransformationMode, Viewpoint } from '@vcmap/core';
+  import type {
+    VcsUiApp,
+    VcsAction,
+    CollectionComponentListItem,
+  } from '@vcmap/ui';
   import {
     VcsFormButton,
     VcsFormSection,
@@ -179,14 +186,9 @@
     VcsTextField,
     VcsFeatureTransforms,
     VcsHelp,
-    VcsUiApp,
-    VcsAction,
   } from '@vcmap/ui';
-  import {
-    ViewshedPluginModes,
-    HeightModes,
-    ViewshedManager,
-  } from './viewshedManager.js';
+  import type { ViewshedManager } from './viewshedManager.js';
+  import { ViewshedPluginModes, HeightModes } from './viewshedManager.js';
   import Viewshed, { ViewshedTypes } from './viewshed.js';
 
   const parameterRanges = {
@@ -219,14 +221,14 @@
     },
     props: {
       getViewshed: {
-        type: Function,
-        required: false,
-        default: undefined,
+        type: Function as PropType<() => Viewshed | undefined>,
+        default: () => undefined,
       },
       selection: {
-        type: Object,
-        required: false,
-        default: undefined,
+        type: Object as PropType<
+          Ref<CollectionComponentListItem[]> | undefined
+        >,
+        default: () => undefined,
       },
     },
     setup(props) {
@@ -243,8 +245,6 @@
         app.maps.activeMap?.movementApiCallsDisabled ?? false,
       );
       let movementDisabledListener: (() => void) | undefined;
-
-      const selection = computed(() => props.selection);
 
       let removePositionChangedListener = (): void => {};
 
@@ -368,15 +368,18 @@
             viewshedManager.stop();
           }
         }
-        if (selection.value) {
+        if (props.selection?.value) {
           // in case of collection component editor
-          if (selection.value.length > 1) {
+          if (props.selection.value.length > 1) {
             viewshedManager.setupMultiSelect();
-          } else if (selection.value.length === 1 && currentViewshed.value) {
+          } else if (
+            props.selection.value.length === 1 &&
+            currentViewshed.value
+          ) {
             viewshedManager.viewViewshed(currentViewshed.value);
           } else if (
             // when a persited viewshed is deselected, stops plugin
-            !selection.value.length &&
+            !props.selection.value.length &&
             viewshedMode.value === ViewshedPluginModes.EDIT
           ) {
             viewshedManager.stop(false);
@@ -494,13 +497,18 @@
         HeightModes,
         heightMode: viewshedManager.heightMode,
         TransformationMode,
-        changeHeightMode: (v: HeightModes): void =>
-          viewshedManager.changeHeightMode(v),
+        changeHeightMode: (v: HeightModes): void => {
+          viewshedManager.changeHeightMode(v);
+        },
         async createNewViewshed(): Promise<void> {
           await viewshedManager.createViewshed(viewshedType.value!);
         },
-        addToMyWorkspace: (): void => viewshedManager.persistCurrent(),
-        cancel: (): void => viewshedManager.stop(),
+        addToMyWorkspace: (): void => {
+          viewshedManager.persistCurrent();
+        },
+        cancel: (): void => {
+          viewshedManager.stop();
+        },
         headerActions,
       };
     },

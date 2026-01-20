@@ -38,15 +38,6 @@
     ".": "./src/index.js",
     "./dist": "./dist/index.js"
   },
-  "eslintIgnore": [
-    "node_modules",
-    "dist",
-    "plugin-assets"
-  ],
-  "eslintConfig": {
-    "root": true,
-    "extends": "@vcsuite/eslint-config/vueTs"
-  },
   "prettier": "@vcsuite/eslint-config/prettier.js",
   "peerDependencies": {
     "@vcmap-cesium/engine": "^11.0.2",
@@ -61,7 +52,7 @@
   },
   "devDependencies": {
     "@vcmap/plugin-cli": "^4.0.1",
-    "@vcsuite/eslint-config": "^3.0.8",
+    "@vcsuite/eslint-config": "^4.0.0",
     "@vitest/coverage-v8": "^2.1.4",
     "jest-canvas-mock": "^2.5.2",
     "jsdom": "^22.1.0",

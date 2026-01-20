@@ -1,18 +1,21 @@
 import { reactive } from 'vue';
 import { Category, CesiumMap, VcsEvent } from '@vcmap/core';
-import {
+import type {
   CollectionComponentClass,
   CollectionComponentListItem,
+  VcsUiApp,
+  MappingFunction,
+} from '@vcmap/ui';
+import {
   createListExportAction,
   createListImportAction,
   createSupportedMapMappingFunction,
   downloadText,
-  MappingFunction,
   NotificationType,
-  VcsUiApp,
 } from '@vcmap/ui';
 import { name } from '../package.json';
-import Viewshed, { ViewshedOptions, ViewshedTypes } from './viewshed.js';
+import type { ViewshedOptions, ViewshedTypes } from './viewshed.js';
+import Viewshed from './viewshed.js';
 
 export type ViewshedCategoryHelper = {
   renamed: VcsEvent<{ item: Viewshed; title: string }>;
@@ -25,7 +28,7 @@ export type ViewshedCategoryHelper = {
   /** Sets the visibility of a viewshed item by providing its name and a boolean value. */
   setVisibility(itemName: string, visible: boolean): void;
   /** Adds a viewshed to the categories collection. Also assigns new title to the viewshed. */
-  add(viewshed: import('./viewshed.js').default): void;
+  add(viewshed: Viewshed): void;
   /** Removes viewshed from category collection by providing a name. */
   remove(itemName: string): void;
   /** The collection component of the category. */
@@ -39,7 +42,7 @@ class ViewshedCategory extends Category<Viewshed> {
     return 'ViewshedCategory';
   }
 
-  async _deserializeItem(item: ViewshedOptions): Promise<Viewshed> {
+  protected async _deserializeItem(item: ViewshedOptions): Promise<Viewshed> {
     const cesiumMap = this._app?.maps.getByType(CesiumMap.className)[0] as
       | CesiumMap
       | undefined;

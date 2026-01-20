@@ -1,11 +1,11 @@
+import type { InteractionEvent } from '@vcmap/core';
 import {
   AbstractInteraction,
   EventType,
-  InteractionEvent,
   Projection,
   VcsEvent,
 } from '@vcmap/core';
-import Viewshed from './viewshed.js';
+import type Viewshed from './viewshed.js';
 
 class ViewshedInteraction extends AbstractInteraction {
   static get className(): string {

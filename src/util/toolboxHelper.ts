@@ -1,15 +1,16 @@
 import { CesiumMap } from '@vcmap/core';
-import {
+import type {
   SelectToolboxComponentOptions,
   SingleToolboxComponentOptions,
-  ToolboxType,
   VcsUiApp,
 } from '@vcmap/ui';
+import { ToolboxType } from '@vcmap/ui';
 import { check, ofEnum } from '@vcsuite/check';
 import { reactive, watch } from 'vue';
 import { ViewshedTypes } from '../viewshed.js';
-import { ViewshedIcons } from './windowHelper.js';
-import { ViewshedManager, ViewshedPluginModes } from '../viewshedManager.js';
+import { viewshedIcons } from './windowHelper.js';
+import type { ViewshedManager } from '../viewshedManager.js';
+import { ViewshedPluginModes } from '../viewshedManager.js';
 
 type ViewshedToolbox = {
   toolbox: SingleToolboxComponentOptions | SelectToolboxComponentOptions;
@@ -35,18 +36,18 @@ function createViewshedToolbox(
    * @returns A tool object.
    */
   function parseTool(
-    tool: string,
+    tool: ViewshedTypes,
   ): { name: ViewshedTypes; icon: string; title: string } | undefined {
     if (tool === ViewshedTypes.CONE) {
       return {
         name: ViewshedTypes.CONE,
-        icon: ViewshedIcons[ViewshedTypes.CONE],
+        icon: viewshedIcons[ViewshedTypes.CONE],
         title: `viewshed.create.${ViewshedTypes.CONE}`,
       };
     } else if (tool === ViewshedTypes.THREESIXTY) {
       return {
         name: ViewshedTypes.THREESIXTY,
-        icon: ViewshedIcons[ViewshedTypes.THREESIXTY],
+        icon: viewshedIcons[ViewshedTypes.THREESIXTY],
         title: `viewshed.create.${ViewshedTypes.THREESIXTY}`,
       };
     } else {
@@ -57,7 +58,7 @@ function createViewshedToolbox(
   let toolbox: SingleToolboxComponentOptions | SelectToolboxComponentOptions;
   let currentViewshedWatcher: () => void;
   if (tools.length === 1) {
-    const tool = parseTool(tools[0])!;
+    const tool = parseTool(tools[0] as ViewshedTypes)!;
     toolbox = {
       type: ToolboxType.SINGLE,
       action: reactive({
@@ -106,7 +107,7 @@ function createViewshedToolbox(
           const toolName = this.tools[this.currentIndex].name;
           await manager.createViewshed(toolName);
         },
-        tools: tools.flatMap(parseTool),
+        tools: tools.flatMap((t) => parseTool(t as ViewshedTypes)),
       }),
     };
 
@@ -117,7 +118,7 @@ function createViewshedToolbox(
           (toolbox as SelectToolboxComponentOptions).action.currentIndex = (
             toolbox as SelectToolboxComponentOptions
           ).action.tools.findIndex(
-            (tool) => tool.name === currentViewshed.type,
+            (tool) => (tool.name as ViewshedTypes) === currentViewshed.type,
           );
         }
       },

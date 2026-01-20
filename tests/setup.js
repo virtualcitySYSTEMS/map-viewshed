@@ -1,14 +1,14 @@
-/* eslint-disable import/no-extraneous-dependencies, import/first */
+/* global global */
 import { vi } from 'vitest';
+
+import ResizeObserver from 'resize-observer-polyfill';
+
+import 'jest-canvas-mock';
 
 vi.hoisted(() => {
   global.jest = vi;
 });
 
-import ResizeObserver from 'resize-observer-polyfill';
-
 global.ResizeObserver = ResizeObserver;
-
-import 'jest-canvas-mock';
 
 window.CESIUM_BASE_URL = '/node_modules/@vcmap-cesium/engine/Build/';

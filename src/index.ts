@@ -1,21 +1,18 @@
-import { CesiumMap, moduleIdSymbol, VcsMap } from '@vcmap/core';
-import { PluginConfigEditor, VcsPlugin, VcsUiApp } from '@vcmap/ui';
-import Viewshed, {
-  ColorOptions,
-  ViewshedOptions,
-  ViewshedTypes,
-} from './viewshed.js';
+import type { VcsMap } from '@vcmap/core';
+import { CesiumMap, moduleIdSymbol } from '@vcmap/core';
+import type { PluginConfigEditor, VcsPlugin, VcsUiApp } from '@vcmap/ui';
+import type { ColorOptions, ViewshedOptions } from './viewshed.js';
+import Viewshed, { ViewshedTypes } from './viewshed.js';
+import type { ViewshedManager } from './viewshedManager.js';
 import createViewshedManager, {
   ViewshedPluginModes,
-  ViewshedManager,
 } from './viewshedManager.js';
 import { setupViewshedWindow } from './util/windowHelper.js';
 import addViewshedToolButtons from './util/toolboxHelper.js';
 import { name, version, mapVersion } from '../package.json';
 import ViewshedCategory, { createCategory } from './viewshedCategory.js';
-import ViewshedConfigEditor, {
-  ViewshedConfig,
-} from './ViewshedConfigEditor.vue';
+import type { ViewshedConfig } from './ViewshedConfigEditor.vue';
+import ViewshedConfigEditor from './ViewshedConfigEditor.vue';
 
 type ViewshedPluginState = {
   /** Which mode the plugin is currently in. */
@@ -146,7 +143,11 @@ export default function plugin(options: ViewshedPluginOptions): ViewshedPlugin {
       const mode = viewshedManager.mode.value;
       const currentViewshed = viewshedManager.currentViewshed.value?.toJSON();
 
-      if (mode !== null && mode !== 'create' && currentViewshed) {
+      if (
+        mode !== null &&
+        mode !== ViewshedPluginModes.CREATE &&
+        currentViewshed
+      ) {
         state.m = mode;
         state.cv = currentViewshed;
         if (forUrl && state.cv?.properties?.title) {
@@ -172,7 +173,9 @@ export default function plugin(options: ViewshedPluginOptions): ViewshedPlugin {
         },
       ];
     },
-    destroy: () => destroy(),
+    destroy: (): void => {
+      destroy();
+    },
     i18n: {
       en: {
         viewshed: {

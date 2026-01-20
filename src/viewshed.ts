@@ -1,17 +1,20 @@
-import { CesiumMap, VcsEvent, VcsObject, VcsObjectOptions } from '@vcmap/core';
+import type { CesiumMap, VcsObjectOptions } from '@vcmap/core';
+import { VcsEvent, VcsObject } from '@vcmap/core';
+import type {
+  Scene,
+  PerspectiveFrustum,
+  HeadingPitchRollValues,
+} from '@vcmap-cesium/engine';
 import {
   Camera,
   Cartesian3,
   Math as CesiumMath,
   ShadowMap,
   Color,
-  Scene,
-  PerspectiveFrustum,
-  HeadingPitchRollValues,
 } from '@vcmap-cesium/engine';
 import { check } from '@vcsuite/check';
 import { parseEnumValue } from '@vcsuite/parsers';
-import { Coordinate } from 'ol/coordinate.js';
+import type { Coordinate } from 'ol/coordinate.js';
 import ViewshedCameraPrimitive from './viewshedPrimitive.js';
 
 export enum ViewshedTypes {
@@ -132,7 +135,7 @@ export default class Viewshed extends VcsObject {
 
   private _showPrimitive: boolean;
 
-  private _positionChanged: VcsEvent<number[]> = new VcsEvent();
+  private _positionChanged = new VcsEvent<number[]>();
 
   private _active = false;
 
@@ -366,7 +369,6 @@ export default class Viewshed extends VcsObject {
       this._removePrimitive();
       this._shadowMap!.enabled = false;
       // @ts-expect-error - ShadowMap destroy method exists but is not in type definitions
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
       this._shadowMap?.destroy();
       this._shadowCamera = null;
       this._scene = null;
@@ -419,7 +421,6 @@ export default class Viewshed extends VcsObject {
     }
 
     // @ts-expect-error - ShadowMap destroy method exists but is not in type definitions
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     this._shadowMap?.destroy();
     // @ts-expect-error - does not accept parameters
     this._shadowMap = new ShadowMap({

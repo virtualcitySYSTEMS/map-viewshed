@@ -1,10 +1,13 @@
-import { nextTick, Ref, ref, ShallowRef, shallowRef } from 'vue';
-import {
-  CesiumMap,
+import type { Ref, ShallowRef } from 'vue';
+import { nextTick, ref, shallowRef } from 'vue';
+import type {
   EditFeaturesSession,
   EditGeometrySession,
-  EventType,
   FeatureAtPixelInteraction,
+} from '@vcmap/core';
+import {
+  CesiumMap,
+  EventType,
   Projection,
   SessionType,
   VectorLayer,
@@ -20,13 +23,14 @@ import { Feature } from 'ol';
 import { Point } from 'ol/geom';
 import { Style } from 'ol/style.js';
 import { unByKey } from 'ol/Observable.js';
-import { Coordinate } from 'ol/coordinate.js';
-import { VcsUiApp } from '@vcmap/ui';
+import type { Coordinate } from 'ol/coordinate.js';
+import type { VcsUiApp } from '@vcmap/ui';
 import { name } from '../package.json';
-import Viewshed, { ViewshedTypes } from './viewshed.js';
+import type { ViewshedTypes } from './viewshed.js';
+import Viewshed from './viewshed.js';
 import ViewshedInteraction from './viewshedInteraction.js';
-import { ViewshedPluginOptions } from './index.js';
-import { ViewshedCategoryHelper } from './viewshedCategory.js';
+import type { ViewshedPluginOptions } from './index.js';
+import type { ViewshedCategoryHelper } from './viewshedCategory.js';
 
 /**
  * ViewshedManager interface for managing viewsheds
@@ -467,7 +471,9 @@ export default function createViewshedManager(
     stop,
     destroy(): void {
       stop();
-      categoryListener.forEach((l) => l());
+      categoryListener.forEach((l) => {
+        l();
+      });
     },
   };
 }

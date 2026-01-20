@@ -1,5 +1,5 @@
+import type { Camera } from '@vcmap-cesium/engine';
 import {
-  Camera,
   Color,
   ColorGeometryInstanceAttribute,
   GeometryInstance,
@@ -10,7 +10,8 @@ import {
   SphereOutlineGeometry,
   Transforms,
 } from '@vcmap-cesium/engine';
-import { VcsCameraPrimitive, VcsCameraPrimitiveOptions } from '@vcmap/core';
+import type { VcsCameraPrimitiveOptions } from '@vcmap/core';
+import { VcsCameraPrimitive } from '@vcmap/core';
 
 const scratchColor = new Color();
 const scratchMatrix = new Matrix4();

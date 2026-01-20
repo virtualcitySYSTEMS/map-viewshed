@@ -1,40 +1,33 @@
 import { ref, watch } from 'vue';
-import {
+import type {
   CollectionComponentClass,
   WindowComponentOptions,
-  WindowSlot,
-  makeEditorCollectionComponentClass,
   VcsUiApp,
 } from '@vcmap/ui';
+import { WindowSlot, makeEditorCollectionComponentClass } from '@vcmap/ui';
 import ViewshedWindow from '../ViewshedWindow.vue';
 import { name } from '../../package.json';
-import Viewshed, { ViewshedTypes } from '../viewshed.js';
-import { ViewshedManager, ViewshedPluginModes } from '../viewshedManager.js';
+import type Viewshed from '../viewshed.js';
+import { ViewshedTypes } from '../viewshed.js';
+import type { ViewshedManager } from '../viewshedManager.js';
+import { ViewshedPluginModes } from '../viewshedManager.js';
 
-export const ViewshedIcons = {
+export const viewshedIcons = {
   [ViewshedTypes.CONE]: '$vcsViewshed',
   [ViewshedTypes.THREESIXTY]: '$vcsViewshedCone',
 };
 
-type ViewshedWindowApi = {
-  /** Destroys watchers and removes window. */
-  destroy: () => void;
-  /** Toggles window. Only opens window when manager has current viewshed. */
-  // toggleWindow: () => void;
-};
-
 /**
- *
  * @param manager The viewshed manager.
  * @param app The VcsUiApp instance
  * @param collectionComponent The collection component of the category.
- * @returns Viewshed window api.
+ * @returns The destroy function.
  */
 export function setupViewshedWindow(
   manager: ViewshedManager,
   app: VcsUiApp,
   collectionComponent: CollectionComponentClass<Viewshed>,
-): ViewshedWindowApi {
+): { destroy: () => void } {
   const headerTitle = ref<string | string[]>('');
   const headerIcon = ref();
   const windowId = `${collectionComponent.id}-editor`;
@@ -55,14 +48,15 @@ export function setupViewshedWindow(
       ...editor,
       props: {
         selection: collectionComponent.selection,
-        getViewshed: () => collectionComponent.collection.getByKey(item.name),
+        getViewshed: (): Viewshed | undefined =>
+          collectionComponent.collection.getByKey(item.name),
       },
     }),
   });
 
   function updateHeader(): void {
     if (manager.currentViewshed.value) {
-      headerIcon.value = ViewshedIcons[manager.currentViewshed.value.type];
+      headerIcon.value = viewshedIcons[manager.currentViewshed.value.type];
 
       if (manager.currentIsPersisted.value) {
         headerTitle.value = manager.currentViewshed.value.properties

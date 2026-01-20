@@ -1,6 +1,6 @@
 <template>
-  <AbstractConfigEditor @submit="apply" v-bind="{ ...$attrs, ...$props }">
-    <VcsFormSection heading="viewshed.editor.general" v-if="localConfig">
+  <AbstractConfigEditor v-bind="{ ...$attrs, ...$props }" @submit="apply">
+    <VcsFormSection v-if="localConfig" heading="viewshed.editor.general">
       <v-container class="px-1 py-0">
         <v-row no-gutters>
           <v-col>
@@ -11,8 +11,8 @@
           <v-col>
             <VcsSelect
               id="viewshed-tools"
-              :items="toolItems"
               v-model="localConfig.tools"
+              :items="toolItems"
               :multiple="true"
             />
           </v-col>
@@ -43,18 +43,19 @@
 </template>
 
 <script lang="ts">
-  import { defineComponent, inject, PropType, ref, toRaw } from 'vue';
+  import type { PropType } from 'vue';
+  import { defineComponent, inject, ref, toRaw } from 'vue';
   import { VCol, VColorPicker, VContainer, VRow } from 'vuetify/components';
+  import type { VcsUiApp } from '@vcmap/ui';
   import {
     AbstractConfigEditor,
     VcsFormSection,
     VcsLabel,
     VcsSelect,
-    VcsUiApp,
   } from '@vcmap/ui';
   import { name } from '../package.json';
   import { ViewshedTypes } from './viewshed.js';
-  import { ViewshedPlugin } from './index.js';
+  import type { ViewshedPlugin } from './index.js';
 
   export type ViewshedConfig = {
     /** The color of the viewsheds visible parts. */
