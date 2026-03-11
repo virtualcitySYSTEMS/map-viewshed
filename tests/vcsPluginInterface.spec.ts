@@ -108,7 +108,7 @@ describe('VcsPlugin Interface test', () => {
 
     beforeAll(async () => {
       app = new VcsUiApp();
-      app.plugins.add(pluginInstance!);
+      app.plugins.add(pluginInstance);
       pluginInstance2 = await loadPlugin(packageJSON.name, {
         name: packageJSON.name,
         version: '2.0.0',
@@ -124,9 +124,9 @@ describe('VcsPlugin Interface test', () => {
     });
 
     it('should override the plugin correctly', async () => {
-      expect(() => app.plugins.override(pluginInstance2!)).to.not.throw;
+      expect(() => app.plugins.override(pluginInstance2)).to.not.throw;
       await sleep(0);
-      app.plugins.override(pluginInstance2!);
+      app.plugins.override(pluginInstance2);
       await sleep(0);
       expect(app.plugins.getByKey(packageJSON.name)).to.have.property(
         testPropSymbol,
@@ -137,10 +137,10 @@ describe('VcsPlugin Interface test', () => {
 
     it('should reincarnate the plugin correctly', async () => {
       expect(() => {
-        app.plugins.remove(pluginInstance2!);
+        app.plugins.remove(pluginInstance2);
       }).to.not.throw;
       await sleep(0);
-      app.plugins.remove(pluginInstance2!);
+      app.plugins.remove(pluginInstance2);
       await sleep(0);
       expect(app.plugins.getByKey(packageJSON.name)).not.to.have.property(
         testPropSymbol,

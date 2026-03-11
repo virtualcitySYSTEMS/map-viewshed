@@ -1,6 +1,8 @@
-# v3.0.6
+# v4.0.0
 
-- change plugin code to TypeScript
+- updates @vcmap/core and @vcmap/ui to 6.3
+- refactor plugin code to TypeScript
+- makes parameters editable with an inputfield
 
 # v3.0.4
 

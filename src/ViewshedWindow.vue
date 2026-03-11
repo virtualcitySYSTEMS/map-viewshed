@@ -1,5 +1,6 @@
 <template>
   <div>
+    <!-- CREATE -->
     <div v-if="viewshedMode === ViewshedPluginModes.CREATE">
       <VcsHelp v-if="viewshedType === ViewshedTypes.CONE">
         {{ $t('viewshed.createDescription') }}
@@ -7,19 +8,46 @@
       <VcsHelp v-else-if="viewshedType === ViewshedTypes.THREESIXTY">
         {{ $t('viewshed.createThreeSixtyDescription') }}
       </VcsHelp>
+      <v-row no-gutters class="px-1">
+        <v-col>
+          <VcsLabel html-for="heightMode">
+            {{ $t('viewshed.heightMode') }}
+          </VcsLabel>
+        </v-col>
+        <v-col>
+          <VcsSelect
+            id="heightMode"
+            :items="heightModes"
+            :model-value="heightMode"
+            @update:model-value="changeHeightMode"
+          />
+        </v-col>
+      </v-row>
+      <v-divider />
+      <v-row no-gutters class="px-2 pt-2 pb-1 d-flex justify-end">
+        <VcsFormButton @click="cancel()">
+          {{ $t('viewshed.cancel') }}
+        </VcsFormButton>
+      </v-row>
     </div>
-    <VcsFormSection
-      v-else-if="
+    <!-- EDIT AND MOVE -->
+    <VcsWorkspaceWrapper
+      v-if="
         viewshedMode === ViewshedPluginModes.EDIT ||
         viewshedMode === ViewshedPluginModes.MOVE
       "
-      :header-actions="headerActions"
-      heading="viewshed.viewpoint"
-      :action-button-list-overflow-count="3"
+      :disable-add="currentIsPersisted"
+      class="wrapper"
+      @add-clicked="addToMyWorkspace"
+      @new-clicked="createNewViewshed"
     >
-      <v-container class="px-1 py-0">
-        <v-row no-gutters>
-          <span class="px-1 py-0">{{ $t('viewshed.position') }}</span>
+      <VcsFormSection
+        :header-actions="headerActions"
+        heading="viewshed.viewpoint"
+        :action-button-list-overflow-count="3"
+      >
+        <v-row no-gutters class="px-1">
+          <span class="px-1">{{ $t('viewshed.position') }}</span>
         </v-row>
         <v-row
           v-if="
@@ -27,6 +55,7 @@
             heightMode === HeightModes.ABSOLUTE
           "
           no-gutters
+          class="px-1"
         >
           <VcsFeatureTransforms
             :transformation-mode="TransformationMode.TRANSLATE"
@@ -35,7 +64,7 @@
             class="w-100"
           />
         </v-row>
-        <v-row v-else no-gutters>
+        <v-row v-else no-gutters class="px-1">
           <v-col
             v-for="(value, key, index) in position"
             :key="index"
@@ -57,11 +86,9 @@
             />
           </v-col>
         </v-row>
-      </v-container>
-    </VcsFormSection>
-    <v-divider />
-    <v-container class="px-1 py-0">
-      <v-row no-gutters>
+      </VcsFormSection>
+      <v-divider />
+      <v-row no-gutters class="px-1">
         <v-col>
           <VcsLabel html-for="heightMode">
             {{ $t('viewshed.heightMode') }}
@@ -70,88 +97,32 @@
         <v-col>
           <VcsSelect
             id="heightMode"
-            :items="
-              Object.values(HeightModes).map((item) => ({
-                value: item,
-                title: `viewshed.${item}`,
-              }))
-            "
+            :items="heightModes"
             :model-value="heightMode"
             @update:model-value="changeHeightMode"
           />
         </v-col>
       </v-row>
-    </v-container>
-    <v-container
-      v-if="
-        viewshedMode === ViewshedPluginModes.EDIT ||
-        viewshedMode === ViewshedPluginModes.MOVE
-      "
-      class="px-1 pt-0 pb-2"
-    >
-      <v-row v-for="(value, key) in parameters" :key="key" no-gutters>
-        <v-col
+      <div v-for="(value, key) in parameters" :key="key" class="px-1">
+        <VcsLabeledSlider
           v-if="
             key === 'distance' ||
             (viewshedType === ViewshedTypes.CONE && key !== 'showPrimitive')
           "
-        >
-          <v-row no-gutters class="px-1">
-            <v-col>
-              <VcsLabel :html-for="key" class="py-0">
-                {{ $t(`viewshed.${key}`) }}
-              </VcsLabel>
-            </v-col>
-            <v-col class="d-flex justify-end align-center">
-              <span v-if="key === 'distance'">{{
-                `${Math.round(Number(value))} m`
-              }}</span>
-              <span v-else>{{ `${Math.round(Number(value))} °` }}</span>
-            </v-col>
-          </v-row>
-          <v-row no-gutters>
-            <v-col>
-              <VcsSlider
-                :id="key"
-                class="pa-0"
-                :model-value="value"
-                type="number"
-                step="1"
-                :min="parameterRanges[key][0]"
-                :max="parameterRanges[key][1]"
-                @update:model-value="(v: number) => setParameter(key, v)"
-              />
-            </v-col>
-          </v-row>
-        </v-col>
-      </v-row>
-    </v-container>
-    <v-divider />
-    <div
-      v-if="
-        viewshedMode === ViewshedPluginModes.EDIT ||
-        viewshedMode === ViewshedPluginModes.MOVE
-      "
-      class="d-flex w-full justify-space-between px-2 pt-2 pb-1"
-    >
-      <VcsFormButton
-        tooltip="viewshed.addToMyWorkspace"
-        icon="$vcsComponentsPlus"
-        :disabled="currentIsPersisted || undefined"
-        @click="addToMyWorkspace()"
-      />
-      <VcsFormButton variant="filled" @click="createNewViewshed()">
-        {{ $t('viewshed.new') }}
-      </VcsFormButton>
-    </div>
-    <div
-      v-else-if="viewshedMode === ViewshedPluginModes.CREATE"
-      class="d-flex w-full justify-end px-2 pt-2 pb-1"
-    >
-      <VcsFormButton variant="outlined" @click="cancel()">
-        {{ $t('viewshed.cancel') }}
-      </VcsFormButton>
-    </div>
+          class="pa-0"
+          :label="`viewshed.${key}`"
+          :unit="key === 'distance' ? 'm' : '°'"
+          :min="parameterRanges[key][0]"
+          :max="parameterRanges[key][1]"
+          :step="1"
+          :text-input-cols="3"
+          allow-text-input
+          hide-spin-buttons
+          :model-value="Math.round(Number(value))"
+          @update:model-value="(v: number) => setParameter(key, v)"
+        />
+      </div>
+    </VcsWorkspaceWrapper>
   </div>
 </template>
 
@@ -169,7 +140,7 @@
     watch,
     watchEffect,
   } from 'vue';
-  import { VCol, VContainer, VDivider, VRow } from 'vuetify/components';
+  import { VCol, VDivider, VRow } from 'vuetify/components';
   import type { CesiumMap } from '@vcmap/core';
   import { TransformationMode, Viewpoint } from '@vcmap/core';
   import type {
@@ -179,13 +150,14 @@
   } from '@vcmap/ui';
   import {
     VcsFormButton,
-    VcsFormSection,
-    VcsLabel,
-    VcsSelect,
-    VcsSlider,
-    VcsTextField,
     VcsFeatureTransforms,
+    VcsFormSection,
     VcsHelp,
+    VcsLabel,
+    VcsLabeledSlider,
+    VcsSelect,
+    VcsTextField,
+    VcsWorkspaceWrapper,
   } from '@vcmap/ui';
   import type { ViewshedManager } from './viewshedManager.js';
   import { ViewshedPluginModes, HeightModes } from './viewshedManager.js';
@@ -206,18 +178,18 @@
   export default defineComponent({
     name: 'ViewshedWindow',
     components: {
-      VcsTextField,
-      VContainer,
-      VRow,
       VCol,
-      VcsSlider,
-      VcsLabel,
-      VcsFormSection,
       VDivider,
-      VcsSelect,
+      VRow,
       VcsFormButton,
       VcsFeatureTransforms,
+      VcsFormSection,
       VcsHelp,
+      VcsLabel,
+      VcsLabeledSlider,
+      VcsSelect,
+      VcsTextField,
+      VcsWorkspaceWrapper,
     },
     props: {
       getViewshed: {
@@ -496,6 +468,10 @@
         ViewshedTypes,
         HeightModes,
         heightMode: viewshedManager.heightMode,
+        heightModes: Object.values(HeightModes).map((item) => ({
+          value: item,
+          title: `viewshed.${item}`,
+        })),
         TransformationMode,
         changeHeightMode: (v: HeightModes): void => {
           viewshedManager.changeHeightMode(v);
@@ -514,3 +490,5 @@
     },
   });
 </script>
+
+<style scoped lang="scss"></style>

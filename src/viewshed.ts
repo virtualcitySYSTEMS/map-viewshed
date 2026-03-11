@@ -77,6 +77,14 @@ type ViewshedSpecificOptions = {
   heightOffset?: number;
 };
 
+type ViewshedDefaultOptions = VcsObjectOptions &
+  Required<
+    Pick<
+      ViewshedOptions,
+      'colorOptions' | 'frustumOptions' | 'orientation' | 'position'
+    >
+  > & { colorOptions: Required<ColorOptions> };
+
 export type ViewshedOptions = VcsObjectOptions & ViewshedSpecificOptions;
 
 /**
@@ -87,12 +95,7 @@ export default class Viewshed extends VcsObject {
     return 'Viewshed';
   }
 
-  static getDefaultOptions(): Required<
-    Pick<
-      ViewshedOptions,
-      'colorOptions' | 'frustumOptions' | 'orientation' | 'position'
-    >
-  > & { colorOptions: Required<ColorOptions> } {
+  static getDefaultOptions(): ViewshedDefaultOptions {
     return {
       colorOptions: { shadowColor: '#3333331A', visibleColor: '#FF990080' },
       frustumOptions: {

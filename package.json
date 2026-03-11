@@ -1,7 +1,7 @@
 {
   "name": "@vcmap/viewshed",
-  "version": "3.0.5",
-  "description": "Tool to simulate a \"viewer\" and their field of vision from a certain standpoint in the map. It allows the user to see which areas and buildings can or can't be seen from a specific standpoint, regarding different viewing distances, viewers' sizes and orientations.Th",
+  "version": "4.0.0-rc.0",
+  "description": "Tool to simulate a \"viewer\" and their field of vision from a certain standpoint in the map. It allows the user to see which areas and buildings can or can't be seen from a specific standpoint, regarding different viewing distances, viewers' sizes and orientations.",
   "type": "module",
   "main": "src/index.js",
   "scripts": {
@@ -40,31 +40,33 @@
   },
   "prettier": "@vcsuite/eslint-config/prettier.js",
   "peerDependencies": {
-    "@vcmap-cesium/engine": "^11.0.2",
-    "@vcmap/core": "^6.0.4",
-    "@vcmap/ui": "^6.0.6",
-    "ol": "^10.2.1",
+    "@vcmap-cesium/engine": "^11.0.4",
+    "@vcmap/core": "^6.3.0",
+    "@vcmap/ui": "^6.3.0-rc.6",
+    "ol": "^10.4.0",
     "vue": "~3.4.38",
-    "vuetify": "^3.7.3"
+    "vuetify": "~3.7.14"
   },
   "overrides": {
+    "@vcmap/core": "^6.3.0",
+    "@vcmap/ui": "^6.3.0-rc.6",
     "esbuild": "^0.25.0"
   },
   "devDependencies": {
-    "@vcmap/plugin-cli": "^4.0.1",
-    "@vcsuite/eslint-config": "^4.0.0",
-    "@vitest/coverage-v8": "^2.1.4",
+    "@vcmap/plugin-cli": "^4.1.6",
+    "@vcsuite/eslint-config": "^4.1.0",
+    "@vitest/coverage-v8": "^2.1.9",
     "jest-canvas-mock": "^2.5.2",
     "jsdom": "^22.1.0",
     "resize-observer-polyfill": "^1.5.1",
     "typescript": "^5.9.2",
-    "vitest": "^2.1.4",
+    "vitest": "^2.1.9",
     "vue-tsc": "^2.2.12"
   },
   "dependencies": {
+    "@vcsuite/check": "^3.2.2",
     "@vcsuite/logger": "^1.0.1",
-    "@vcsuite/check": "^3.1.0",
     "@vcsuite/parsers": "^2.0.1"
   },
-  "mapVersion": "^6.0"
+  "mapVersion": "^6.3"
 }
