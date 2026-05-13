@@ -1,6 +1,8 @@
 import type { VcsMap } from '@vcmap/core';
 import { CesiumMap, moduleIdSymbol } from '@vcmap/core';
 import type { PluginConfigEditor, VcsPlugin, VcsUiApp } from '@vcmap/ui';
+import { getLogger } from '@vcsuite/logger';
+import { reactive } from 'vue';
 import type { ColorOptions, ViewshedOptions } from './viewshed.js';
 import Viewshed, { ViewshedTypes } from './viewshed.js';
 import type { ViewshedManager } from './viewshedManager.js';
@@ -13,8 +15,10 @@ import { name, version, mapVersion } from '../package.json';
 import ViewshedCategory, { createCategory } from './viewshedCategory.js';
 import type { ViewshedConfig } from './ViewshedConfigEditor.vue';
 import ViewshedConfigEditor from './ViewshedConfigEditor.vue';
+import ActivateViewshedCallback from './callbacks/activateViewshedCallback.js';
+import DeactivateViewshedCallback from './callbacks/deactivateViewshedCallback.js';
 
-type ViewshedPluginState = {
+export type ViewshedPluginState = {
   /** Which mode the plugin is currently in. */
   m?: ViewshedPluginModes | null;
   /** The currents viewshed options. */
@@ -36,15 +40,43 @@ export function getDefaultOptions(): ViewshedConfig {
 export type ViewshedPlugin = VcsPlugin<
   ViewshedPluginOptions,
   ViewshedPluginState
->;
+> & {
+  readonly state: ViewshedPluginState;
+  activate: () => void;
+  deactivate: () => void;
+};
+
+function activateCachedViewshed(
+  map: VcsMap,
+  viewshedManager?: ViewshedManager,
+  state?: ViewshedPluginState,
+): void {
+  if (!state?.m || !(map instanceof CesiumMap)) {
+    return;
+  }
+  if (state.m === ViewshedPluginModes.CREATE) {
+    const viewshedType = state.cv?.viewshedType ?? ViewshedTypes.CONE;
+    viewshedManager?.createViewshed(viewshedType).catch((e: unknown) => {
+      getLogger(name).error('Failed to create viewshed', String(e));
+    });
+  } else if (state.cv) {
+    const activeViewshed = new Viewshed(state.cv);
+    if (state.m === ViewshedPluginModes.VIEW) {
+      viewshedManager?.viewViewshed(activeViewshed);
+    } else {
+      viewshedManager?.editViewshed(activeViewshed);
+    }
+  }
+}
 
 export default function plugin(options: ViewshedPluginOptions): ViewshedPlugin {
-  let app: VcsUiApp;
-  let viewshedManager: ViewshedManager;
+  let app: VcsUiApp | undefined;
+  let viewshedManager: ViewshedManager | undefined;
   let destroy = (): void => {};
 
   const defaultOptions = getDefaultOptions();
   const config = { ...defaultOptions, ...options };
+  const defaultState: ViewshedPluginState = reactive({});
 
   return {
     get name(): string {
@@ -56,16 +88,29 @@ export default function plugin(options: ViewshedPluginOptions): ViewshedPlugin {
     get mapVersion(): string {
       return mapVersion;
     },
+    getDefaultOptions,
+    state: defaultState,
     async initialize(
       vcsUiApp: VcsUiApp,
       state?: ViewshedPluginState,
     ): Promise<void> {
       app = vcsUiApp;
+      app.callbackClassRegistry.registerClass(
+        this[moduleIdSymbol],
+        ActivateViewshedCallback.className,
+        ActivateViewshedCallback,
+      );
+      app.callbackClassRegistry.registerClass(
+        this[moduleIdSymbol],
+        DeactivateViewshedCallback.className,
+        DeactivateViewshedCallback,
+      );
       vcsUiApp.categoryClassRegistry.registerClass(
         this[moduleIdSymbol],
         ViewshedCategory.className,
         ViewshedCategory,
       );
+
       const viewshedCategoryHelper = await createCategory(vcsUiApp);
       viewshedManager = createViewshedManager(
         vcsUiApp,
@@ -85,26 +130,17 @@ export default function plugin(options: ViewshedPluginOptions): ViewshedPlugin {
       );
 
       const { activeMap } = vcsUiApp.maps;
-      function activateCachedViewshed(map: VcsMap): void {
-        if (state?.m && state.cv && map instanceof CesiumMap) {
-          const activeViewshed = new Viewshed(state.cv);
-          if (state.m === ViewshedPluginModes.VIEW) {
-            viewshedManager.viewViewshed(activeViewshed);
-          } else {
-            viewshedManager.editViewshed(activeViewshed);
-          }
-        }
-      }
+
       let appliedCachedViewshed = false;
       if (activeMap) {
         appliedCachedViewshed = true;
-        activateCachedViewshed(activeMap);
+        activateCachedViewshed(activeMap, viewshedManager, state);
       }
       const mapActivatedListener = vcsUiApp.maps.mapActivated.addEventListener(
         (map) => {
-          viewshedManager.stop();
+          viewshedManager?.stop();
           if (!appliedCachedViewshed) {
-            activateCachedViewshed(map);
+            activateCachedViewshed(map, viewshedManager, state);
             appliedCachedViewshed = true;
           }
         },
@@ -114,11 +150,24 @@ export default function plugin(options: ViewshedPluginOptions): ViewshedPlugin {
         mapActivatedListener();
         destroyButtons();
         destroyViewshedWindow();
-        viewshedCategoryHelper.destroy();
-        viewshedManager.destroy();
+        viewshedCategoryHelper?.destroy();
+        viewshedManager?.destroy();
       };
     },
-    getDefaultOptions,
+    activate(): void {
+      if (!viewshedManager || !app) {
+        getLogger(name).error('Cannot activate plugin before initialization');
+        return;
+      }
+      if (!app.maps.activeMap) {
+        getLogger(name).error('Cannot activate plugin without an active map');
+        return;
+      }
+      activateCachedViewshed(app.maps.activeMap, viewshedManager, this.state);
+    },
+    deactivate(): void {
+      viewshedManager?.stop();
+    },
     toJSON(): ViewshedPluginOptions {
       const serial: ViewshedPluginOptions = {};
       if (config.tools && defaultOptions.tools.length !== config.tools.length) {
@@ -140,8 +189,8 @@ export default function plugin(options: ViewshedPluginOptions): ViewshedPlugin {
     },
     getState(forUrl?: boolean): ViewshedPluginState {
       const state: ViewshedPluginState = {};
-      const mode = viewshedManager.mode.value;
-      const currentViewshed = viewshedManager.currentViewshed.value?.toJSON();
+      const mode = viewshedManager?.mode.value;
+      const currentViewshed = viewshedManager?.currentViewshed.value?.toJSON();
 
       if (
         mode !== null &&
@@ -172,9 +221,6 @@ export default function plugin(options: ViewshedPluginOptions): ViewshedPlugin {
           ),
         },
       ];
-    },
-    destroy: (): void => {
-      destroy();
     },
     i18n: {
       en: {
@@ -253,6 +299,19 @@ export default function plugin(options: ViewshedPluginOptions): ViewshedPlugin {
           },
         },
       },
+    },
+    destroy(): void {
+      if (app) {
+        app.callbackClassRegistry.unregisterClass(
+          this[moduleIdSymbol],
+          ActivateViewshedCallback.className,
+        );
+        app.callbackClassRegistry.unregisterClass(
+          this[moduleIdSymbol],
+          DeactivateViewshedCallback.className,
+        );
+      }
+      destroy();
     },
   };
 }

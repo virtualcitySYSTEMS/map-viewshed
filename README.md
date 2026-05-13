@@ -17,3 +17,52 @@ To add and configure the plugin add an entry with name @vcmap/viewshed to the ma
 | tools        | `Array<'cone' \| '360'>` | `['cone', '360']` | The tools/modes that should be added to the map.                        |
 | shadowColor  | `string`                 | `#3333331A`       | The color of areas that **can not** be seen from the "viewers" position |
 | visibleColor | `string`                 | `FF990080`        | The color of areas that **can** be seen from the "viewers" position     |
+
+## Callbacks
+
+The Viewshed plugin registers two [VcsCallbacks](https://github.com/virtualcitySYSTEMS/map-ui/blob/main/documentation/CALLBACKS.md) that can be used in guided tours, splash screens, or any other callback-driven feature.
+
+### ActivateViewshedCallback
+
+Activates the Viewshed plugin and optionally sets the mode and viewshed to display.
+
+| property        | type                                     | description                                                                                                        |
+| --------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| m               | `'create' \| 'view' \| 'edit' \| 'move'` | The mode to activate the plugin in. Defaults to `create`, which starts the map interaction for placing a viewshed. |
+| cv              | `ViewshedOptions`                        | Optional viewshed to display. Required for `view` and `edit` modes.                                                |
+| cv.viewshedType | `'cone' \| '360'`                        | The type of viewshed to use.                                                                                       |
+| cv.position     | `[number, number, number]`               | Position of the viewshed in WGS84 coordinates `[longitude, latitude, height]`.                                     |
+| cv.orientation  | `{ heading, pitch, roll }`               | Heading, pitch and roll of the viewshed, in radians (cone type only).                                              |
+| cv.heightOffset | `number`                                 | Height offset added to the Z value of the position.                                                                |
+
+Minimal example — opens the create interaction for a cone viewshed:
+
+```json
+{
+  "type": "ActivateViewshedCallback"
+}
+```
+
+A full example displaying an existing viewshed in edit mode:
+
+```json
+{
+  "type": "ActivateViewshedCallback",
+  "m": "edit",
+  "cv": {
+    "viewshedType": "cone",
+    "position": [13.4, 52.5, 50],
+    "orientation": { "heading": 0.78, "pitch": -0.17, "roll": 0 }
+  }
+}
+```
+
+### DeactivateViewshedCallback
+
+Deactivates the Viewshed tool.
+
+```json
+{
+  "type": "DeactivateViewshedCallback"
+}
+```

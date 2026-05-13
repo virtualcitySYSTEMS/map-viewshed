@@ -1,3 +1,7 @@
+# v4.1.0
+
+- Added `ActivateViewshedCallback` and `DeactivateViewshedCallback` to activate and deactivate the Viewshed tool via the VcsCallback system
+
 # v4.0.0
 
 - updates @vcmap/core and @vcmap/ui to 6.3
