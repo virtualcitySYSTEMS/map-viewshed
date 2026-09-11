@@ -42,6 +42,16 @@ export type ColorOptions = {
   shadowColor?: string;
 };
 
+function disableNormalShading(shadowMap: ShadowMap): void {
+  const biases = shadowMap as unknown as Record<
+    string,
+    { normalShading: boolean }
+  >;
+  ['_terrainBias', '_primitiveBias', '_pointBias'].forEach((key) => {
+    biases[key].normalShading = false;
+  });
+}
+
 /**
  * Creates camera and sets frustum options and orientation.
  */
@@ -438,6 +448,7 @@ export default class Viewshed extends VcsObject {
       maximumDistance: 200,
       size: 2048,
     });
+    disableNormalShading(this._shadowMap);
     this._shadowMap.viewshed = this._colors;
     this._cesiumMap.setShadowMap(this._shadowMap);
   }

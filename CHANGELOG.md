@@ -1,3 +1,7 @@
+# v4.1.1
+
+- improves viewshed terrain visibility by correcting shadow-map depth precision
+
 # v4.1.0
 
 - Added `ActivateViewshedCallback` and `DeactivateViewshedCallback` to activate and deactivate the Viewshed tool via the VcsCallback system
